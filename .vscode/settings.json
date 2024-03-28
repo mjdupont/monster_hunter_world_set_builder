@@ -1,0 +1,11 @@
+{
+    "tailwindCSS.includeLanguages": {
+        "fsharp": "html"
+    },
+    "tailwindCSS.experimental.classRegex": [
+        "\\.className\\s+\"([^\"]*)\"",
+        ["\\.className\\s+\\[([^\\]]*)\\]", "\"([^\"]*)\""]
+    ],
+    "FSharp.inlayHints.parameterNames": false,
+    "editor.inlayHints.enabled": "offUnlessPressed"
+}

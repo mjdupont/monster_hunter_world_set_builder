@@ -1,0 +1,14 @@
+Fable.Browser.WebStorage
+Fable.Core
+Fable.Elmish
+Fable.Elmish.React
+Fable.Elmish.Debugger
+Fable.Elmish.HMR
+Fable.Remoting.Client
+Fable.React
+Feliz
+Feliz.Bulma
+Feliz.SelectSearch
+FSharp.Core
+FSharp.Data
+Thoth.Json
