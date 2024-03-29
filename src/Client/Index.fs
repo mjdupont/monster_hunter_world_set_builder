@@ -78,36 +78,22 @@ let init () : (Model * Cmd<Msg>)=
       ]
     model, cmd
 
+let loadNewGameData model mhwDataType = 
+  let updateField (loadingData:LoadingMHWData) = function
+    | MHWDataType.Armor x -> { loadingData with Armor = Deferred.Success x }
+    | MHWDataType.Decorations x -> { loadingData with Decorations = Deferred.Success x }
+    | MHWDataType.Charms x -> { loadingData with Charms = Deferred.Success x }
+    | MHWDataType.Skills x -> { loadingData with Skills = Deferred.Success x }
+
+  match model.GameData with 
+    | NotAsked -> PartialDeferred.InProgress (updateField LoadingMHWData.Default mhwDataType)
+    | PartialDeferred.InProgress loadingData -> PartialDeferred.InProgress (updateField loadingData mhwDataType)
+    | _ -> model.GameData
+
 let update msg (model:Model) =
     match msg with
-    | LoadData (Success (MHWDataType.Armor armor)) -> 
-      let newGameData = 
-        match model.GameData with 
-        | NotAsked -> PartialDeferred.InProgress { LoadingMHWData.Default with Armor = Deferred.Success armor } 
-        | PartialDeferred.InProgress p -> PartialDeferred.InProgress { p with Armor = Deferred.Success armor } 
-        | _ -> model.GameData
-      { model with GameData = newGameData}, Cmd.ofMsg CheckIfFullyLoaded
-    | LoadData (Success (MHWDataType.Decorations decorations)) -> 
-      let newGameData = 
-        match model.GameData with 
-        | NotAsked -> PartialDeferred.InProgress { LoadingMHWData.Default with Decorations = Deferred.Success decorations } 
-        | PartialDeferred.InProgress p -> PartialDeferred.InProgress { p with Decorations = Deferred.Success decorations } 
-        | _ -> model.GameData
-      { model with GameData = newGameData}, Cmd.ofMsg CheckIfFullyLoaded
-    | LoadData (Success (MHWDataType.Skills skills)) ->       
-      let newGameData = 
-        match model.GameData with 
-        | NotAsked -> PartialDeferred.InProgress { LoadingMHWData.Default with Skills = Deferred.Success skills } 
-        | PartialDeferred.InProgress p -> PartialDeferred.InProgress { p with Skills = Deferred.Success skills } 
-        | _ -> model.GameData
-      { model with GameData = newGameData}, Cmd.ofMsg CheckIfFullyLoaded
-    | LoadData (Success (MHWDataType.Charms charms)) ->       
-      let newGameData = 
-        match model.GameData with 
-        | NotAsked -> PartialDeferred.InProgress { LoadingMHWData.Default with Charms = Deferred.Success charms } 
-        | PartialDeferred.InProgress p -> PartialDeferred.InProgress  { p with Charms = Deferred.Success charms } 
-        | _ -> model.GameData
-      { model with GameData = newGameData}, Cmd.ofMsg CheckIfFullyLoaded
+    | LoadData (Success dataType) -> 
+      { model with GameData = loadNewGameData model dataType }, Cmd.ofMsg CheckIfFullyLoaded
     | LoadData (InProgress) -> model, Cmd.none //TODO: Handle this case
     | LoadData (Failure _) -> model, Cmd.none // TODO: Handle this case
     | CheckIfFullyLoaded -> 
