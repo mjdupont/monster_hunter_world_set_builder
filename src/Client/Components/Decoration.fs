@@ -8,7 +8,7 @@ namespace Components
     open ModelData
     
     [<ReactComponent>]
-    let Component position (armorType: ArmorType) (slot:Slot) (decorations) (chosenSet) (updateChosenSet ) =
+    let Component position (armorType: ArmorType) (slot:Slot) (decorations) (chosenSet) (updateChosenSet) =
       let (Slot slot) = slot
       let decorations : Decoration list = decorations |> List.filter (fun decoration -> decoration.Slot <= slot)
 
