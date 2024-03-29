@@ -12,48 +12,55 @@ open ModelData
 open Components
 open HelperFunctions
 
-type Model =
-  { Armor: Deferred<Armor list, string>
-    Decorations: Deferred<Decoration list, string>
-    Skills: Deferred<Skill list, string>
-    Charms: Deferred<Charm list, string>
-    Input: string
-    ChosenSet: ChosenSet
-  }
+type MHWDataType =
+  | Armor of Armor list
+  | Decorations of Decoration list
+  | Skills of Skill list
+  | Charms of Charm list
 
-type LoadedModel = 
+type MHWData = 
   { Armor: Armor list
     Decorations: Decoration list
     Skills: Skill list
     Charms: Charm list
+  }
+
+type LoadingMHWData = 
+  { Armor: Deferred<Armor list, string>
+    Decorations: Deferred<Decoration list, string>
+    Skills: Deferred<Skill list, string>
+    Charms: Deferred<Charm list, string>
+  }
+  static member Default =
+    { Armor = Deferred.NotAsked 
+      Decorations = Deferred.NotAsked 
+      Skills = Deferred.NotAsked 
+      Charms = Deferred.NotAsked 
+    }
+  member this.isFullyLoaded = 
+    this.Armor |> Deferred.isSuccessful 
+    && this.Decorations |> Deferred.isSuccessful
+    && this.Skills |> Deferred.isSuccessful 
+    && this.Charms |> Deferred.isSuccessful
+
+  member this.asFullyLoaded : PartialDeferred<LoadingMHWData, MHWData, string> = 
+    match this.Armor, this.Decorations, this.Skills, this.Charms with
+    | Deferred.Success a, Deferred.Success d, Deferred.Success s, Deferred.Success c -> PartialDeferred.Success { Armor = a; Decorations = d; Skills = s; Charms = c}
+    | _ -> PartialDeferred.Failure "Tried to treat input data as fully loaded before ready"
+
+type Model = 
+  { GameData : PartialDeferred<LoadingMHWData, MHWData, string>
     Input: string
     ChosenSet: ChosenSet
   }
 
-let modelLoadedStatus (model:Model) : Deferred<LoadedModel,string> =
-  match model.Decorations, model.Armor, model.Charms, model.Skills with
-  | Deferred.Success decorations, Deferred.Success armor, Deferred.Success charms, Deferred.Success skills -> Deferred.Success { Armor = armor; Decorations = decorations; Skills = skills; Charms = charms; Input = model.Input; ChosenSet = model.ChosenSet }
-  | Deferred.Failure f, _, _, _  -> Deferred.Failure f
-  | _, Deferred.Failure f, _, _ -> Deferred.Failure f
-  | _, _, Deferred.Failure f, _ -> Deferred.Failure f
-  | _, _, _, Deferred.Failure f -> Deferred.Failure f
-  | Deferred.InProgress, _, _, _ -> Deferred.InProgress
-  | _, Deferred.InProgress, _, _ -> Deferred.InProgress
-  | _, _, Deferred.InProgress, _ -> Deferred.InProgress
-  | _, _, _, Deferred.InProgress -> Deferred.InProgress
-  | Deferred.NotAsked, _, _, _ -> Deferred.NotAsked
-  | _, Deferred.NotAsked, _, _ -> Deferred.NotAsked
-  | _, _, Deferred.NotAsked, _ -> Deferred.NotAsked
-  | _, _, _, Deferred.NotAsked -> Deferred.NotAsked
-
-
 type Msg =
-    | GotArmor of Armor list
-    | GotDecorations of Decoration list
-    | GotSkills of Skill list
-    | GotCharms of Charm list
+    | LoadData of DeferredMessage<MHWDataType, string>
+    | CheckIfFullyLoaded
+    | LoadChosenSetFromWebStorage 
     | UpdateChosenSet of ChosenSet
     | SetInput of string
+
 
 let todosApi =
     Remoting.createApi ()
@@ -61,24 +68,61 @@ let todosApi =
     |> Remoting.buildProxy<IMHWApi>
 
 let init () : (Model * Cmd<Msg>)=
-    let (model:Model) = { Input = "" ; Armor = Deferred.NotAsked; Decorations = Deferred.NotAsked; Skills = Deferred.NotAsked; Charms = Deferred.NotAsked; ChosenSet = ChosenSet.Default }
+    let (model:Model) = { Input = "" ; GameData = PartialDeferred.NotAsked; ChosenSet = ChosenSet.Default }
     let cmd =
       Cmd.batch [
-        Cmd.OfAsync.perform todosApi.getArmor () GotArmor
-        Cmd.OfAsync.perform todosApi.getDecorations () GotDecorations
-        Cmd.OfAsync.perform todosApi.getSkills () GotSkills
-        Cmd.OfAsync.perform todosApi.getCharms () GotCharms
+        Cmd.OfAsync.perform (todosApi.getArmor >> Async.map (MHWDataType.Armor >> DeferredMessage.Success)) () LoadData
+        Cmd.OfAsync.perform (todosApi.getDecorations >> Async.map (MHWDataType.Decorations >> DeferredMessage.Success)) () LoadData
+        Cmd.OfAsync.perform (todosApi.getSkills >> Async.map (MHWDataType.Skills >> DeferredMessage.Success)) () LoadData
+        Cmd.OfAsync.perform (todosApi.getCharms >> Async.map (MHWDataType.Charms >> DeferredMessage.Success)) () LoadData
       ]
-
-
     model, cmd
 
 let update msg (model:Model) =
     match msg with
-    | GotArmor armor -> { model with Armor = Deferred.Success armor }, Cmd.none
-    | GotDecorations decorations -> { model with Decorations = Deferred.Success decorations}, Cmd.none
-    | GotSkills skills -> { model with Skills = Deferred.Success skills}, Cmd.none
-    | GotCharms charms -> { model with Charms = Deferred.Success charms}, Cmd.none
+    | LoadData (Success (MHWDataType.Armor armor)) -> 
+      let newGameData = 
+        match model.GameData with 
+        | NotAsked -> PartialDeferred.InProgress { LoadingMHWData.Default with Armor = Deferred.Success armor } 
+        | PartialDeferred.InProgress p -> PartialDeferred.InProgress { p with Armor = Deferred.Success armor } 
+        | _ -> model.GameData
+      { model with GameData = newGameData}, Cmd.ofMsg CheckIfFullyLoaded
+    | LoadData (Success (MHWDataType.Decorations decorations)) -> 
+      let newGameData = 
+        match model.GameData with 
+        | NotAsked -> PartialDeferred.InProgress { LoadingMHWData.Default with Decorations = Deferred.Success decorations } 
+        | PartialDeferred.InProgress p -> PartialDeferred.InProgress { p with Decorations = Deferred.Success decorations } 
+        | _ -> model.GameData
+      { model with GameData = newGameData}, Cmd.ofMsg CheckIfFullyLoaded
+    | LoadData (Success (MHWDataType.Skills skills)) ->       
+      let newGameData = 
+        match model.GameData with 
+        | NotAsked -> PartialDeferred.InProgress { LoadingMHWData.Default with Skills = Deferred.Success skills } 
+        | PartialDeferred.InProgress p -> PartialDeferred.InProgress { p with Skills = Deferred.Success skills } 
+        | _ -> model.GameData
+      { model with GameData = newGameData}, Cmd.ofMsg CheckIfFullyLoaded
+    | LoadData (Success (MHWDataType.Charms charms)) ->       
+      let newGameData = 
+        match model.GameData with 
+        | NotAsked -> PartialDeferred.InProgress { LoadingMHWData.Default with Charms = Deferred.Success charms } 
+        | PartialDeferred.InProgress p -> PartialDeferred.InProgress  { p with Charms = Deferred.Success charms } 
+        | _ -> model.GameData
+      { model with GameData = newGameData}, Cmd.ofMsg CheckIfFullyLoaded
+    | LoadData (InProgress) -> model, Cmd.none //TODO: Handle this case
+    | LoadData (Failure _) -> model, Cmd.none // TODO: Handle this case
+    | CheckIfFullyLoaded -> 
+      match model.GameData with 
+      | PartialDeferred.InProgress loadingMHWData when loadingMHWData.isFullyLoaded -> { model with GameData = loadingMHWData.asFullyLoaded }, Cmd.ofMsg LoadChosenSetFromWebStorage
+      | _ -> model, Cmd.none
+    | LoadChosenSetFromWebStorage ->
+      let loadedChosenSet = 
+        match model.GameData with
+        | PartialDeferred.Success gameData ->
+          let loadedChosenset = ChosenSet.readFromWebStorage gameData.Decorations [] gameData.Armor gameData.Charms
+          loadedChosenset
+        | _ -> ChosenSet.Default
+      { model with ChosenSet = loadedChosenSet}, Cmd.none
+
     | UpdateChosenSet set -> 
       do ChosenSet.storeToWebStorage set
       { model with ChosenSet = set}, Cmd.none
@@ -127,7 +171,6 @@ let accumulateSkills (skills:SkillRank array) =
       { skillRankState with Level = skillRankState.Level + newSkillRank.Level }))
 
 
-
 module Components =
 
   [<ReactComponent>]
@@ -160,19 +203,21 @@ module Components =
     let updateChosenSet chosenSet armorType armor : ChosenSet =
       match armor with
       | None -> chosenSet
+      | Some armor when ChosenSet.getArmor armorType chosenSet = Some (armor, DecorationSlots.FromSlots armor.Slots) ->
+        ChosenSet.updateArmor armorType None chosenSet
       | Some armor ->
         ChosenSet.updateArmor armorType (Some (armor, DecorationSlots.FromSlots armor.Slots)) chosenSet
 
     let chosenPiece = chosenSet |> ChosenSet.getArmor armorType
 
     Html.div [
-      prop.className "armor-item flex flex-row bg-white/80 rounded-md shadow-md p-4 w-5/6 lg:w-3/4 lg:max-w-2xl"
+      prop.className "armor-item flex flex-row gap-8 bg-white/80 rounded-md shadow-md p-4 w-full"
       prop.children [
         Html.div [
           prop.className "flex flex-row"
           prop.children [
             Html.div [
-              prop.className "flex flex-col"
+              prop.className "flex flex-col w-max"
               prop.children [
                 Html.div [
                   SelectSearch.selectSearch [
@@ -250,36 +295,30 @@ module Components =
       matchingCharmRank |> Array.tryHead
 
     Html.div [
-      prop.className "armor-item flex flex-row bg-white/80 rounded-md shadow-md p-4 w-5/6 lg:w-3/4 lg:max-w-2xl"
+      prop.className "charm-item flex flex-row bg-white/80 rounded-md shadow-md p-4 w-full justify-center items-center gap-8"
       prop.children [
         Html.div [
-          prop.className "flex flex-row"
+          prop.className "flex flex-col w-max"
           prop.children [
-
             Html.div [
-              prop.className "flex flex-col"
-              prop.children [
-                Html.div [
-                  SelectSearch.selectSearch [
-                    selectSearch.value (chosenSet.Charm |> Option.map (fun (charm, charmRank) -> charm.Id |> sprintf "%i") |> Option.defaultValue "")
-                    selectSearch.placeholder "Select a Charm"
-                    selectSearch.search true
-                    selectSearch.filterOptions filterOptions
-                    selectSearch.onChange
-                      ( findCharmFromId
-                        >> (fun charm -> 
-                          match charm |> Option.map (fun c -> c.Ranks) with 
-                          | Some ranks when ranks |> Array.length > 0 ->{ chosenSet with Charm = charm |> Option.map (fun c -> (c, c.Ranks |> Array.sortByDescending (fun sr -> sr.Level) |> Array.head)) }
-                          | _ -> chosenSet
-                          )
-                        >> UpdateChosenSet
-                        >> dispatch
+              SelectSearch.selectSearch [
+                selectSearch.value (chosenSet.Charm |> Option.map (fun (charm, charmRank) -> charm.Id |> sprintf "%i") |> Option.defaultValue "")
+                selectSearch.placeholder "Select a Charm"
+                selectSearch.search true
+                selectSearch.filterOptions filterOptions
+                selectSearch.onChange
+                  ( findCharmFromId
+                    >> (fun charm -> 
+                      match charm |> Option.map (fun c -> c.Ranks) with 
+                      | Some ranks when ranks |> Array.length > 0 -> { chosenSet with Charm = charm |> Option.map (fun c -> (c, c.Ranks |> Array.sortByDescending (fun sr -> sr.Level) |> Array.head)) }
+                      | _ -> chosenSet
                       )
-                    selectSearch.options [
-                        for charm in charms -> { value = charm.Id |> sprintf "%i"; name = charm.Name; disabled = false }
-                      ]
+                    >> UpdateChosenSet
+                    >> dispatch
+                  )
+                selectSearch.options [
+                    for charm in charms -> { value = charm.Id |> sprintf "%i"; name = charm.Name; disabled = false }
                   ]
-                ]
               ]
             ]
           ]
@@ -295,7 +334,7 @@ module Components =
         | Some (chosenCharm, charmRank) ->
           Html.div [
             SelectSearch.selectSearch [
-                selectSearch.value (charmRank |> string)
+                selectSearch.value (charmRank.Level |> string)
                 selectSearch.placeholder "Rank"
                 selectSearch.search true
                 selectSearch.filterOptions filterOptions
@@ -316,11 +355,11 @@ module Components =
 
 let view (model:Model) dispatch =
 
-    match model |> modelLoadedStatus with
-    | Deferred.NotAsked -> Html.text "NotAsked"
-    | Deferred.InProgress -> Html.text "Loading..."
-    | Deferred.Failure f -> Html.text (sprintf "Failed with \"%s\" and maybe more errors" f) 
-    | Deferred.Success model ->
+    match model.GameData with
+    | PartialDeferred.NotAsked -> Html.text "NotAsked"
+    | PartialDeferred.InProgress _ -> Html.text "Loading..."
+    | PartialDeferred.Failure f -> Html.text (sprintf "Failed with \"%s\" and maybe more errors" f) 
+    | PartialDeferred.Success gameData ->
       let totalSkills = (model.ChosenSet |> totalSkills |> accumulateSkills)
       Html.section [
           prop.className "h-screen w-screen"
@@ -336,27 +375,31 @@ let view (model:Model) dispatch =
                   prop.children [ Html.img [ prop.src "/favicon.png"; prop.alt "Logo" ] ]
               ]
               Html.div [
-                prop.className "content flex flex-col items-center justify-center h-full w-full"
+                prop.className "content flex flex-row items-center justify-center h-full w-full gap-8"
                 prop.children [
                   Html.div [
-                    prop.className "armorsetbuilder flex flex-col items-center stretch center center w-full"
+                    prop.className "armor-summary bg-white/80 rounded-md shadow-md p-4"
                     prop.children [
-                      Components.armorItem ArmorType.Headgear model.Decorations model.Armor model.ChosenSet dispatch
-                      Components.armorItem ArmorType.Chest model.Decorations model.Armor model.ChosenSet dispatch
-                      Components.armorItem ArmorType.Gloves model.Decorations model.Armor model.ChosenSet dispatch
-                      Components.armorItem ArmorType.Waist model.Decorations model.Armor model.ChosenSet dispatch
-                      Components.armorItem ArmorType.Legs model.Decorations model.Armor model.ChosenSet dispatch
-                      Components.charmItem model.Charms model.ChosenSet dispatch
+                      for skill in totalSkills ->
+                      Html.div [
+                        prop.className ""
+                        prop.children [
+                          Html.h3 (sprintf "%s: %i" skill.SkillName skill.Level)
+                        ]
+                      ]
                     ]
                   ]
-                ]
-              ]
-
-              Html.div [
-                prop.className "Armor Summary"
-                prop.children [
-                  for skill in totalSkills ->
-                  Html.h3 (sprintf "%s: %i" skill.SkillName skill.Level)
+                  Html.div [
+                    prop.className "armorsetbuilder flex flex-col items-center stretch center center w-max"
+                    prop.children [
+                      Components.armorItem ArmorType.Headgear gameData.Decorations gameData.Armor model.ChosenSet dispatch
+                      Components.armorItem ArmorType.Chest gameData.Decorations gameData.Armor model.ChosenSet dispatch
+                      Components.armorItem ArmorType.Gloves gameData.Decorations gameData.Armor model.ChosenSet dispatch
+                      Components.armorItem ArmorType.Waist gameData.Decorations gameData.Armor model.ChosenSet dispatch
+                      Components.armorItem ArmorType.Legs gameData.Decorations gameData.Armor model.ChosenSet dispatch
+                      Components.charmItem gameData.Charms model.ChosenSet dispatch
+                    ]
+                  ]
                 ]
               ]
           ]

@@ -102,28 +102,28 @@ namespace Components
               
               selectSearch.filterOptions filterOptions
               
-              selectSearch.renderValue (fun properties ->
-                Html.button [
-                  yield! properties.attributes
-                  prop.className "select-search__input"
-                  prop.children [
-                    Html.div [
-                      prop.className "flex flex-row"
-                      prop.children [
-                        Html.img [
-                          prop.height 36
-                          prop.width 36
-                          prop.style [ style.marginRight 10; ]
-                          prop.src (if properties.displayValue = "" then emptySlotImageUrl slot
-                          else imageUrlByDisplayValue properties.displayValue)
-                        ]
-                        Html.span (if properties.displayValue = "" then placeholder else properties.displayValue)
-                        ]
-                    ]
+              // selectSearch.renderValue (fun properties ->
+              //   Html.button [
+              //     yield! properties.attributes
+              //     prop.className "select-search__input"
+              //     prop.children [
+              //       Html.div [
+              //         prop.className "flex flex-row"
+              //         prop.children [
+              //           Html.img [
+              //             prop.height 36
+              //             prop.width 36
+              //             prop.style [ style.marginRight 10; ]
+              //             prop.src (if properties.displayValue = "" then emptySlotImageUrl slot
+              //             else imageUrlByDisplayValue properties.displayValue)
+              //           ]
+              //           Html.span (if properties.displayValue = "" then placeholder else properties.displayValue)
+              //           ]
+              //       ]
                     
-                  ]
-                ]
-              )
+              //     ]
+              //   ]
+              // )
 
               selectSearch.renderOption (fun properties ->
                 Html.button [
