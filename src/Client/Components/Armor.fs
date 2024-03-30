@@ -19,9 +19,9 @@ namespace Components
         match armor with
         | None -> chosenSet
         | Some armor when ChosenSet.getArmor armorType chosenSet = Some (armor, DecorationSlots.FromSlots armor.Slots) ->
-          ChosenSet.updateArmor armorType None chosenSet
+          ChosenSet.setArmor armorType None chosenSet
         | Some armor ->
-          ChosenSet.updateArmor armorType (Some (armor, DecorationSlots.FromSlots armor.Slots)) chosenSet
+          ChosenSet.setArmor armorType (Some (armor, DecorationSlots.FromSlots armor.Slots)) chosenSet
 
       let chosenPiece = chosenSet |> ChosenSet.getArmor armorType
 

@@ -173,7 +173,8 @@ module InferredTypes =
       let uri = """https://mhw-db.com/armor"""
 
       let toReal (skillNames:Map<int, string>) (armor: Api.Root) : Armor =
-        { Defense = { Base = armor.Defense.Base; Max = armor.Defense.Max; Augmented = armor.Defense.Augmented }
+        { ArmorSet = armor.ArmorSet.Id
+        ; Defense = { Base = armor.Defense.Base; Max = armor.Defense.Max; Augmented = armor.Defense.Augmented }
         ; Id = armor.Id
         ; Name = armor.Name
         ; Rank = armor.Rank |> (|Rank|_|) |> Option.defaultValue DataTypes.Rank.Low //TODO Handle this default better
@@ -271,11 +272,36 @@ module InferredTypes =
   module ArmorSet =
       // Source: https://docs.mhw-db.com/#armorset-fields
       [<Literal>]
-      let sample = """{"id":20,"name":"Anja","rank":"low","pieces":[{"id":84,"slug":"anja-helm","name":"Anja Helm","type":"head","rank":"low","rarity":3,"armorSet":20,"attributes":{"defense":20,"resistFire":3,"resistWater":-3,"resistThunder":-1,"resistIce":-1},"skills":[{"id":80,"slug":"fire-attack-rank-1","level":1,"description":"Fire attack +30","modifiers":{"damageFire":30},"skill":26,"skillName":"Fire Attack"}],"assets":{"imageMale":"https://assets.mhw-db.com/armor/...","imageFemale":"https://assets.mhw-db.com/armor/..."}}],"bonus":{"id":1,"name":"Anjanath Power","ranks":[{"pieces":3,"skill":{"id":311,"slug":"adrenaline-rank-1","level":1,"description":"Temporarily reduces stamina depletion ...","modifiers":[],"skill":112,"skillName":"Adrenaline"}}]}}"""
+      let sample = """[{"id":20,"name":"Anja","rank":"low","pieces":[{"id":84,"slug":"anja-helm","name":"Anja Helm","type":"head","rank":"low","rarity":3,"armorSet":20,"attributes":{"defense":20,"resistFire":3,"resistWater":-3,"resistThunder":-1,"resistIce":-1},"skills":[{"id":80,"slug":"fire-attack-rank-1","level":1,"description":"Fire attack +30","modifiers":{"damageFire":30},"skill":26,"skillName":"Fire Attack"}],"assets":{"imageMale":"https://assets.mhw-db.com/armor/...","imageFemale":"https://assets.mhw-db.com/armor/..."}}],"bonus":{"id":1,"name":"Anjanath Power","ranks":[{"pieces":3,"skill":{"id":311,"slug":"adrenaline-rank-1","level":1,"description":"Temporarily reduces stamina depletion ...","modifiers":[],"skill":112,"skillName":"Adrenaline"}}]}},{"id":20,"name":"Anja","rank":"low","pieces":[{"id":84,"slug":"anja-helm","name":"Anja Helm","type":"head","rank":"low","rarity":3,"armorSet":20,"attributes":{"defense":20,"resistFire":3,"resistWater":-3,"resistThunder":-1,"resistIce":-1},"skills":[{"id":80,"slug":"fire-attack-rank-1","level":1,"description":"Fire attack +30","modifiers":{"damageFire":30},"skill":26,"skillName":"Fire Attack"}],"assets":{"imageMale":"https://assets.mhw-db.com/armor/...","imageFemale":"https://assets.mhw-db.com/armor/..."}}],"bonus":null}]"""
 
-      type Api = JsonProvider<sample>
+      type Api = JsonProvider<sample, SampleIsList=true>
 
       let uri = """https://mhw-db.com/armor/sets"""
+
+      let toReal (skillNames:Map<int,string>) (armorSet: Api.Root) = 
+        { Id = armorSet.Id
+        ; Name = armorSet.Name
+        ; Rank = armorSet.Rank |> (|Rank|_|) |> Option.defaultValue DataTypes.Rank.Low //TODO Handle this default better
+        ; Pieces = [| for piece in armorSet.Pieces -> piece.Id |]
+        ; Bonus = armorSet.Bonus 
+          |> Option.map (fun bonus -> 
+            { Id = bonus.Id; Name = bonus.Name; Ranks = [| for rank in bonus.Ranks -> { Pieces = rank.Pieces; Skill = rank.Skill.JsonValue.ToString() |> SkillRank.Api.Parse |> (SkillRank.toReal skillNames) } |] }
+          ) 
+        }
+
+      let loadArmorSets (skillNames: Map<int, string>) : Async<ArmorSet list> = 
+        async {
+          printfn "Loading ArmorSets..."
+          let! armorSets = JsonValue.AsyncLoad(uri)
+          let armorSets =
+            armorSets
+            |> (fun x -> x.ToString())
+            |> Api.ParseList
+            |> Array.ofSeq
+            |> Array.map (toReal skillNames)
+            |> List.ofSeq
+          return armorSets
+        }
 
   [<RequireQualifiedAccess>]
   module Weapon =
@@ -283,10 +309,32 @@ module InferredTypes =
       [<Literal>]
       let sample = """{"id":94,"name":"Iron Grace 3","type":"long-sword","rarity":5,"attack":{"display":462,"raw":140},"elderseal":null,"attributes":{"damageType":"sever"},"damageType":"sever","durability":[{"red":90,"orange":50,"yellow":50,"green":80,"blue":30,"white":0,"purple":0}],"slots":[{"rank":1}],"elements":[{"type":"water","damage":120,"hidden":true}],"crafting":{"craftable":false,"previous":93,"branches":[95],"craftingMaterials":[],"upgradeMaterials":[{"quantity":8,"item":{"id":119,"name":"Carbalite Ore","description":"Ore obtained from mining outcrops. Still ...","rarity":6,"carryLimit":99,"value":680}}]},"assets":{"icon":"https://assets.mhw-db.com/weapons/long-sword/icons/...","image":"https://assets.mhw-db.com/weapons/long-sword/..."}}"""
 
-      type Api = JsonProvider<sample>
+      type Api = JsonProvider<"../../resources/ElementJson/weapons.json", SampleIsList=true>
 
       let uri = """https://mhw-db.com/weapons"""
 
+      let toReal (weapon:Api.Root) : Weapon = 
+        { Id = weapon.Id
+        ; Name = weapon.Name
+        //; Type: WeaponType
+        ; Rarity = weapon.Rarity
+        ; Attack = weapon.Attack.Display
+        ; Slots = weapon.Slots |> Array.map (fun s -> Slot s.Rank)
+        }
+
+      let loadWeapons : Async<Weapon list> =
+        async {
+          printfn "Loading Weapons..."
+          let! weapons = JsonValue.AsyncLoad(uri)
+          let weapons =
+            weapons
+            |> (fun x -> x.ToString())
+            |> Api.ParseList
+            |> Array.ofSeq
+            |> Array.map (toReal)
+            |> List.ofSeq
+          return weapons
+        }
 
 [<AutoOpen>]
 module Testing =
@@ -315,7 +363,7 @@ module Testing =
             armorsets
             |> Seq.choose (fun armorset ->
                 try
-                    Some armorset.Bonus
+                    armorset.Bonus
                 with ex -> None)
 
         let armorSetSkills =

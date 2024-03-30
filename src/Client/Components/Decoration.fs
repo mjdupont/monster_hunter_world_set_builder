@@ -25,20 +25,20 @@ namespace Components
         | None -> false
         | Some decoration ->
           decoration.Skills
-          |> Array.exists (fun skill -> skill.SkillName.ToLower().Replace(" ", "").Contains(searchQuery.ToLower().Replace(" ", "")))
+          |> Array.exists (fun skill -> skill.SkillName.ToLowerInvariant().Replace(" ", "").Contains(searchQuery.ToLowerInvariant().Replace(" ", "")))
 
       let containsSkillSimple (decoration:Decoration option) (searchQuery:string) =
         match decoration with
         | None -> false
         | Some decoration ->
           decoration.Skills
-          |> Array.exists (fun skill -> skill.SkillName.StartsWith(searchQuery))
+          |> Array.exists (fun skill -> (skill.SkillName.ToLowerInvariant()).StartsWith(searchQuery.ToLowerInvariant()))
 
 
       let filterOptions (item:SelectItem) (searchQuery:string) =
         not item.disabled
         &&
-        (item.name.Contains searchQuery
+        ((item.name.ToLowerInvariant()).Contains (searchQuery.ToLowerInvariant())
         || (containsSkillSimple (findDecorationFromId item.value) searchQuery)
         )
 
@@ -58,7 +58,7 @@ namespace Components
                 | Third -> { decorationSlots with Third = decorationSlots.Third |> Option.map (updateIfDifferent decoration)}
                 )
               )
-        chosenSet |> ChosenSet.updateArmor armorType updatedArmor
+        chosenSet |> ChosenSet.setArmor armorType updatedArmor
 
       let slotAndDecoration =
         chosenSet

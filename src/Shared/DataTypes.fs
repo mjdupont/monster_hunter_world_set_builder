@@ -113,7 +113,7 @@ type Armor =
   ; Resistances: Resistances
   ; Slots: Slot[]
   ; Skills: SkillRank[]
-  // ; ArmorSet: SetInfo
+  ; ArmorSet: int
   // ; Assets: ArmorAssets
   // ; Crafting: ArmorCraftingInfo
   // ; Attributes: ArmorAttributes
@@ -148,8 +148,8 @@ type ArmorSet =
   { Id: int
   ; Name: string
   ; Rank: Rank
-  ; Pieces: Armor []
-  ; Bonus: ArmorSetBonus
+  ; Pieces: int []
+  ; Bonus: ArmorSetBonus option
   }
 
 type Skill =
@@ -162,7 +162,7 @@ type Skill =
 
 type Weapon =
   { Id: int
-  ; Slug: string
+  //; Slug: string
   ; Name: string
   //; Type: WeaponType
   ; Rarity: int

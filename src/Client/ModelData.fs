@@ -5,26 +5,25 @@ module ModelData
 
   type DecorationSlot = (Slot * Decoration option) option
   type private StoredDecorationSlot = (Slot * int option) option
-
-  let private serializeDecorationSlotToStorage (decorationSlot:DecorationSlot) : StoredDecorationSlot =
-    decorationSlot 
-    |> Option.map (fun (slot, deco) -> (slot, deco |> Option.map (fun deco -> deco.Id)))
-  
-  /// Note if a decoration can't be found in the decorations list, this function defaults that decoration to None. 
-  let private deserializeDecorationSlotFromStorage (decorations:Decoration seq) (storedDecorationSlot : StoredDecorationSlot) : DecorationSlot = 
-    match storedDecorationSlot with 
-    | Some (slot, Some deco) -> 
-      let matchingDecoration = decorations |> Seq.filter (fun listDeco -> listDeco.Id = deco) |> Seq.tryExactlyOne 
-      Some (slot, matchingDecoration)
-    | Some (slot, None) -> Some (slot, None)
-    | _ -> None
-
-  // let private serializeDecorationSlot (decorationSlot) =
-  //   decorationSlot |> serializeDecorationSlotToStorage |> Thoth.Json.Encode.Auto.toString
-
-  // let private deserializeDecorationSlot decorations string : DecorationSlot= 
-  //   let storedFormat = string |> Thoth.Json.Decode.Auto.fromString |> Result.defaultValue None
-  //   storedFormat |> (restoreDecorationSlotFromStorage decorations)
+  module DecorationSlot = 
+    let serializeDecorationSlotToStorage (decorationSlot:DecorationSlot) : StoredDecorationSlot =
+      decorationSlot 
+      |> Option.map (fun (slot, deco) -> (slot, deco |> Option.map (fun deco -> deco.Id)))
+    
+    /// Note if a decoration can't be found in the decorations list, this function defaults that decoration to None. 
+    let deserializeDecorationSlotFromStorage (decorations:Decoration seq) (storedDecorationSlot : StoredDecorationSlot) : DecorationSlot = 
+      match storedDecorationSlot with 
+      | Some (slot, Some deco) -> 
+        let matchingDecoration = decorations |> Seq.filter (fun listDeco -> listDeco.Id = deco) |> Seq.tryExactlyOne 
+        Some (slot, matchingDecoration)
+      | Some (slot, None) -> Some (slot, None)
+      | _ -> None
+    
+    let skillsFromDecorationSlot (decorationSlot:DecorationSlot) =
+        decorationSlot
+        |> Option.bind snd
+        |> Option.map (fun deco -> deco.Skills)
+        |> Option.defaultValue [||]
 
 
   type DecorationSlotsPosition =
@@ -53,17 +52,24 @@ module ModelData
   
     static member serializeDecorationSlotsToStorage decorationSlots : StoredDecorationSlots =
       {
-        First = decorationSlots.First |> serializeDecorationSlotToStorage
-        Second = decorationSlots.Second |> serializeDecorationSlotToStorage
-        Third = decorationSlots.Third |> serializeDecorationSlotToStorage
+        First = decorationSlots.First |> DecorationSlot.serializeDecorationSlotToStorage
+        Second = decorationSlots.Second |> DecorationSlot.serializeDecorationSlotToStorage
+        Third = decorationSlots.Third |> DecorationSlot.serializeDecorationSlotToStorage
       } 
     
     static member deserializeDecorationSlotsFromStorage decorations (storage:StoredDecorationSlots) : DecorationSlots =
       {
-        First = storage.First |> (deserializeDecorationSlotFromStorage decorations)
-        Second = storage.Second |> (deserializeDecorationSlotFromStorage decorations)
-        Third = storage.Third |> (deserializeDecorationSlotFromStorage decorations)
+        First = storage.First |> (DecorationSlot.deserializeDecorationSlotFromStorage decorations)
+        Second = storage.Second |> (DecorationSlot.deserializeDecorationSlotFromStorage decorations)
+        Third = storage.Third |> (DecorationSlot.deserializeDecorationSlotFromStorage decorations)
       }
+
+    static member skillsfromDecorationSlots (decorationSlots:DecorationSlots) =
+        [|decorationSlots.First |> DecorationSlot.skillsFromDecorationSlot
+        ; decorationSlots.Second |> DecorationSlot.skillsFromDecorationSlot
+        ; decorationSlots.Third |> DecorationSlot.skillsFromDecorationSlot
+        |]
+        |> Array.concat
 
   and StoredDecorationSlots =
     {
@@ -93,7 +99,7 @@ module ModelData
           Legs = None
           Charm = None
         }
-      static member updateArmor armorType armor (chosenSet:ChosenSet) =
+      static member setArmor armorType armor (chosenSet:ChosenSet) =
         match armorType with
         | ArmorType.Headgear -> { chosenSet with Headgear = armor }
         | ArmorType.Gloves -> { chosenSet with Gloves = armor }
@@ -186,6 +192,60 @@ module ModelData
 
       static member readFromWebStorage (decorations:Decoration seq) (weapons:Weapon seq) (armor: Armor seq) (charms: Charm seq) : ChosenSet =
         Browser.WebStorage.sessionStorage.getItem ("chosenSet") |> ChosenSet.deserialize  decorations weapons armor charms
+
+      static member skillsFromArmor ((armor:Armor), decorationSlots) =
+        [| decorationSlots |> DecorationSlots.skillsfromDecorationSlots; armor.Skills |]
+        |> Array.concat
+
+      static member armorSetBonuses (armorSets:ArmorSet seq) (chosenSet:ChosenSet) =
+
+        let tryFindMatchingArmorSet setId = 
+          armorSets |> Seq.filter (fun aset -> aset.Id = setId) |> Seq.tryExactlyOne
+
+        let tryFindMatchingArmorSetBonus setId = 
+          let matchingArmorSet = tryFindMatchingArmorSet setId
+          matchingArmorSet |> Option.bind (fun matchingArmorSet -> matchingArmorSet.Bonus) 
+
+        let armorSetBonuses = 
+          [| chosenSet.Headgear; chosenSet.Chest; chosenSet.Gloves; chosenSet.Waist; chosenSet.Legs |] 
+          |> Array.choose id
+          |> Array.map fst 
+          |> Array.choose (fun armor -> armor.ArmorSet |> tryFindMatchingArmorSetBonus)
+        
+        let armorSetRanks =
+          armorSetBonuses 
+          |> Array.groupBy id
+          |> Array.map (fun (a, b) -> a, b |> Array.length)
+          |> Array.map (fun (bonus, count) -> [|for rank in bonus.Ranks |> Array.filter (fun r -> r.Pieces <= count) -> bonus, rank|]) 
+          |> Array.concat
+
+        armorSetRanks
+
+      static member totalSkills (chosenSet:ChosenSet) =
+        let skillsFromArmor = 
+          [|chosenSet.Headgear
+          ; chosenSet.Chest
+          ; chosenSet.Gloves
+          ; chosenSet.Waist
+          ; chosenSet.Legs
+          |] |> Array.choose (Option.map ChosenSet.skillsFromArmor)
+          |> Array.concat
+        let skillsFromCharm =
+          chosenSet.Charm 
+          |> Option.map (fun (charm, charmRank) -> charmRank.Skills)
+          |> Option.defaultValue [||]
+        
+        [ skillsFromArmor; skillsFromCharm ] |> Array.concat
+
+      static member  accumulateSkills (skills:SkillRank array) =
+        skills
+        |> Array.groupBy (fun sr -> sr.Skill)
+        |> Array.map (fun (skill, items) ->
+          items
+          |> Array.reduce (fun skillRankState newSkillRank ->
+            { skillRankState with Level = skillRankState.Level + newSkillRank.Level }))
+
+
 
   and private StoredChosenSet = 
     { Weapon: (int * StoredDecorationSlots) option

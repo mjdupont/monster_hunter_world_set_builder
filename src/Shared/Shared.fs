@@ -10,7 +10,9 @@ module Route =
 
 type IMHWApi = {
     getArmor: unit -> Async<Armor list>
+    getArmorSets: unit -> Async<ArmorSet list>
     getDecorations: unit -> Async<Decoration list>
     getSkills: unit -> Async<Skill list>
     getCharms: unit -> Async<Charm list>
+    getWeapons: unit -> Async<Weapon list>
 }
