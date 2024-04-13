@@ -50,14 +50,14 @@ module ModelData
       | Second -> this.Second
       | Third -> this.Third
   
-    static member serializeDecorationSlotsToStorage decorationSlots : StoredDecorationSlots =
+    static member internal serializeDecorationSlotsToStorage decorationSlots : StoredDecorationSlots =
       {
         First = decorationSlots.First |> DecorationSlot.serializeDecorationSlotToStorage
         Second = decorationSlots.Second |> DecorationSlot.serializeDecorationSlotToStorage
         Third = decorationSlots.Third |> DecorationSlot.serializeDecorationSlotToStorage
       } 
     
-    static member deserializeDecorationSlotsFromStorage decorations (storage:StoredDecorationSlots) : DecorationSlots =
+    static member internal deserializeDecorationSlotsFromStorage decorations (storage:StoredDecorationSlots) : DecorationSlots =
       {
         First = storage.First |> (DecorationSlot.deserializeDecorationSlotFromStorage decorations)
         Second = storage.Second |> (DecorationSlot.deserializeDecorationSlotFromStorage decorations)
@@ -71,7 +71,7 @@ module ModelData
         |]
         |> Array.concat
 
-  and StoredDecorationSlots =
+  and internal StoredDecorationSlots =
     {
       First: StoredDecorationSlot
       Second: StoredDecorationSlot
@@ -234,10 +234,14 @@ module ModelData
           chosenSet.Charm 
           |> Option.map (fun (charm, charmRank) -> charmRank.Skills)
           |> Option.defaultValue [||]
+        let skillsFromWeapon = 
+          chosenSet.Weapon
+          |> Option.map ((fun (weapon, slots) -> [| slots |> DecorationSlots.skillsfromDecorationSlots (*; weapon.Skills*) |]) >> Array.concat)
+          |> Option.defaultValue [||]
         
-        [ skillsFromArmor; skillsFromCharm ] |> Array.concat
+        [ skillsFromArmor; skillsFromCharm; skillsFromWeapon ] |> Array.concat
 
-      static member  accumulateSkills (skills:SkillRank array) =
+      static member accumulateSkills (skills:SkillRank array) =
         skills
         |> Array.groupBy (fun sr -> sr.Skill)
         |> Array.map (fun (skill, items) ->

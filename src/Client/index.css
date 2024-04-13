@@ -1,3 +1,24 @@
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+
+
+/* Source: https://stackoverflow.com/questions/17541614/use-images-instead-of-radio-buttons */
+/* HIDE RADIO */
+[type=radio] { 
+  position: absolute;
+  opacity: 0;
+  width: 0;
+  height: 0;
+}
+
+/* IMAGE STYLES */
+[type=radio] + img, [type=radio] + .decotextwrap{
+  cursor: pointer;
+}
+
+/* CHECKED STYLES */
+[type=radio]:checked + img, [type=radio]:checked + .decotextwrap{
+  outline: 2px solid white;
+  border-radius: 2px
+}

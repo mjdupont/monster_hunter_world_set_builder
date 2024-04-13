@@ -170,3 +170,10 @@ type Weapon =
   ; Slots: Slot[]
   // Rest to Follow
   }
+  static member Placeholder slots = 
+    { Id = 9999 
+    ; Name = "Placeholder Weapon"
+    ; Rarity = 0
+    ; Attack = 0
+    ; Slots = slots
+    }

@@ -9,10 +9,13 @@
     <None Include="tailwind.config.js" />
     <None Include="index.html" />
     <None Include="paket.references" />
-    <Compile Include="HelperFunctions.fs"/>
+    <Compile Include="HelperFunctions.fs" />
     <Compile Include="ModelData.fs" />
+    <Compile Include="Components\DecorationSizeSelector.fs" />
     <Compile Include="Components/Decoration.fs" />
-    <Compile Include="Components/ArmorDecoration.fs" />
+    <Compile Include="Components/DecorationSlots.fs" />
+    <Compile Include="Components/Weapon.fs" />
+    <Compile Include="Components\WeaponBuilder.fs" />
     <Compile Include="Components/Armor.fs" />
     <Compile Include="Components/Charm.fs" />
     <Compile Include="Index.fs" />

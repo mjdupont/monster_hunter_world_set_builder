@@ -78,18 +78,19 @@ let mhwApi =
     |> Remoting.withRouteBuilder Route.builder
     |> Remoting.buildProxy<IMHWApi>
 
-let init () : (Model * Cmd<Msg>)=
-    let (model:Model) = { Input = "" ; GameData = PartialDeferred.NotAsked; ChosenSet = ChosenSet.Default }
-    let cmd =
-      Cmd.batch [
-        Cmd.OfAsync.perform (mhwApi.getArmor >> Async.map (MHWDataType.Armor >> DeferredMessage.Success)) () LoadData
-        Cmd.OfAsync.perform (mhwApi.getDecorations >> Async.map (MHWDataType.Decorations >> DeferredMessage.Success)) () LoadData
-        Cmd.OfAsync.perform (mhwApi.getSkills >> Async.map (MHWDataType.Skills >> DeferredMessage.Success)) () LoadData
-        Cmd.OfAsync.perform (mhwApi.getCharms >> Async.map (MHWDataType.Charms >> DeferredMessage.Success)) () LoadData
-        Cmd.OfAsync.perform (mhwApi.getArmorSets >> Async.map (MHWDataType.ArmorSets >> DeferredMessage.Success)) () LoadData
-        Cmd.OfAsync.perform (mhwApi.getWeapons >> Async.map (MHWDataType.Weapons >> DeferredMessage.Success)) () LoadData
-      ]
-    model, cmd
+let init () : (Model * Cmd<Msg>) =
+  let customWeapon = (Some ({ Attack = 0; Id = 0; Name = "Custom Weapon"; Rarity = 0; Slots = [||] }, DecorationSlots.FromSlots [||]))
+  let (model:Model) = { Input = "" ; GameData = PartialDeferred.NotAsked; ChosenSet = {ChosenSet.Default with Weapon = customWeapon} }
+  let cmd =
+    Cmd.batch [
+      Cmd.OfAsync.perform (mhwApi.getArmor >> Async.map (MHWDataType.Armor >> DeferredMessage.Success)) () LoadData
+      Cmd.OfAsync.perform (mhwApi.getDecorations >> Async.map (MHWDataType.Decorations >> DeferredMessage.Success)) () LoadData
+      Cmd.OfAsync.perform (mhwApi.getSkills >> Async.map (MHWDataType.Skills >> DeferredMessage.Success)) () LoadData
+      Cmd.OfAsync.perform (mhwApi.getCharms >> Async.map (MHWDataType.Charms >> DeferredMessage.Success)) () LoadData
+      Cmd.OfAsync.perform (mhwApi.getArmorSets >> Async.map (MHWDataType.ArmorSets >> DeferredMessage.Success)) () LoadData
+      Cmd.OfAsync.perform (mhwApi.getWeapons >> Async.map (MHWDataType.Weapons >> DeferredMessage.Success)) () LoadData
+    ]
+  model, cmd
 
 let loadNewGameData model mhwDataType = 
   let updateField (loadingData:LoadingMHWData) = function
@@ -121,12 +122,13 @@ let update msg (model:Model) =
         | PartialDeferred.Success gameData ->
           let loadedChosenset = ChosenSet.readFromWebStorage gameData.Decorations [] gameData.Armor gameData.Charms
           loadedChosenset
-        | _ -> ChosenSet.Default
-      { model with ChosenSet = loadedChosenSet}, Cmd.none
-
+        | _ -> model.ChosenSet
+      let customWeapon = (Some ({ Attack = 0; Id = 0; Name = "Custom Weapon"; Rarity = 0; Slots = [||] }, DecorationSlots.FromSlots [||]))
+      match loadedChosenSet.Weapon with
+      | None -> { model with ChosenSet = { loadedChosenSet with Weapon = customWeapon } }, Cmd.none 
+      | Some w -> { model with ChosenSet = loadedChosenSet }, Cmd.none 
     | UpdateChosenSet set -> 
       do ChosenSet.storeToWebStorage set
-      printfn "%A" model.ChosenSet.Headgear
       { model with ChosenSet = set}, Cmd.none
     | SetInput value -> { model with Input = value }, Cmd.none
 
@@ -175,6 +177,14 @@ let view (model:Model) dispatch =
                           ]
                       ] 
 
+      let updateArmorPiece armorType newPiece = 
+        match armorType with 
+        | Headgear -> { model.ChosenSet with Headgear = if newPiece = model.ChosenSet.Headgear then None else newPiece}
+        | Chest -> { model.ChosenSet with Chest = if newPiece = model.ChosenSet.Chest then None else newPiece }
+        | Gloves -> { model.ChosenSet with Gloves = if newPiece = model.ChosenSet.Gloves then None else newPiece }
+        | Waist -> { model.ChosenSet with Waist = if newPiece = model.ChosenSet.Waist then None else newPiece }
+        | Legs -> { model.ChosenSet with Legs = if newPiece = model.ChosenSet.Legs then None else newPiece }
+
       Html.section [
           prop.className "h-screen w-screen"
           prop.style [
@@ -199,11 +209,13 @@ let view (model:Model) dispatch =
                   Html.div [
                     prop.className "armorsetbuilder flex flex-col items-center stretch center center w-max"
                     prop.children [
-                      Armor.Component ArmorType.Headgear gameData.Decorations gameData.Armor model.ChosenSet (UpdateChosenSet >> dispatch)
-                      Armor.Component ArmorType.Chest gameData.Decorations gameData.Armor model.ChosenSet (UpdateChosenSet >> dispatch)
-                      Armor.Component ArmorType.Gloves gameData.Decorations gameData.Armor model.ChosenSet (UpdateChosenSet >> dispatch)
-                      Armor.Component ArmorType.Waist gameData.Decorations gameData.Armor model.ChosenSet (UpdateChosenSet >> dispatch)
-                      Armor.Component ArmorType.Legs gameData.Decorations gameData.Armor model.ChosenSet (UpdateChosenSet >> dispatch)
+                      //Weapon.Component gameData.Decorations gameData.Weapons model.ChosenSet.Weapon ((fun weapon -> { model.ChosenSet with Weapon = weapon }) >> UpdateChosenSet >> dispatch)
+                      WeaponBuilder.Component gameData.Decorations model.ChosenSet.Weapon ((fun weapon -> { model.ChosenSet with Weapon = weapon }) >> UpdateChosenSet >> dispatch)
+                      Armor.Component gameData.Decorations (gameData.Armor |> Seq.filter (fun a -> a.Type = Headgear)) model.ChosenSet.Headgear (updateArmorPiece Headgear >> UpdateChosenSet >> dispatch)
+                      Armor.Component gameData.Decorations (gameData.Armor |> Seq.filter (fun a -> a.Type = Chest)) model.ChosenSet.Chest (updateArmorPiece Chest >> UpdateChosenSet >> dispatch)
+                      Armor.Component gameData.Decorations (gameData.Armor |> Seq.filter (fun a -> a.Type = Gloves)) model.ChosenSet.Gloves (updateArmorPiece Gloves >> UpdateChosenSet >> dispatch)
+                      Armor.Component gameData.Decorations (gameData.Armor |> Seq.filter (fun a -> a.Type = Waist)) model.ChosenSet.Waist (updateArmorPiece Waist >> UpdateChosenSet >> dispatch)
+                      Armor.Component gameData.Decorations (gameData.Armor |> Seq.filter (fun a -> a.Type = Legs)) model.ChosenSet.Legs (updateArmorPiece Legs >> UpdateChosenSet >> dispatch)
                       Charm.Component gameData.Charms model.ChosenSet (UpdateChosenSet >> dispatch)
                     ]
                   ]
