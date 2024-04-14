@@ -120,7 +120,8 @@ let update msg (model:Model) =
       let loadedChosenSet = 
         match model.GameData with
         | PartialDeferred.Success gameData ->
-          let loadedChosenset = ChosenSet.readFromWebStorage gameData.Decorations [] gameData.Armor gameData.Charms
+          let loadedChosenset = ChosenSet.readFromWebStorage gameData.Decorations gameData.Weapons gameData.Armor gameData.Charms
+          printfn "ChosenSet: %A" loadedChosenset
           loadedChosenset
         | _ -> model.ChosenSet
       let customWeapon = (Some ({ Attack = 0; Id = 0; Name = "Custom Weapon"; Rarity = 0; Slots = [||] }, DecorationSlots.FromSlots [||]))
@@ -200,14 +201,14 @@ let view (model:Model) dispatch =
                   prop.children [ Html.img [ prop.src "/favicon.png"; prop.alt "Logo" ] ]
               ]
               Html.div [
-                prop.className "content flex flex-row items-center justify-center h-full w-full gap-8"
+                prop.className "content flex flex-row h-full w-full gap-8" // items-center justify-center
                 prop.children [
                   Html.div [
-                    prop.className "armor-summary bg-white/80 rounded-md shadow-md p-4"
+                    prop.className "armor-summary m-auto bg-white/80 rounded-md shadow-md p-4"
                     prop.children ([armorSetSkillsElement; totalSkillsElement] |> List.concat)
                   ]
                   Html.div [
-                    prop.className "armorsetbuilder flex flex-col items-center stretch center center w-max"
+                    prop.className "armorsetbuilder m-auto flex flex-col items-center stretch center center w-max bg-white/80 rounded-md shadow-md"
                     prop.children [
                       //Weapon.Component gameData.Decorations gameData.Weapons model.ChosenSet.Weapon ((fun weapon -> { model.ChosenSet with Weapon = weapon }) >> UpdateChosenSet >> dispatch)
                       WeaponBuilder.Component gameData.Decorations model.ChosenSet.Weapon ((fun weapon -> { model.ChosenSet with Weapon = weapon }) >> UpdateChosenSet >> dispatch)

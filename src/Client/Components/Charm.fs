@@ -35,43 +35,31 @@ namespace Components
         matchingCharmRank |> Array.tryHead
 
       Html.div [
-        prop.className "charm-item flex flex-row bg-white/80 rounded-md shadow-md p-4 w-full justify-center items-center gap-8"
+        prop.className "charm-selector flex flex-row p-4 w-full justify-center items-center gap-8"
         prop.children [
-          Html.div [
-            prop.className "flex flex-col w-max"
-            prop.children [
-              Html.div [
-                SelectSearch.selectSearch [
-                  selectSearch.value (chosenSet.Charm |> Option.map (fun (charm, charmRank) -> charm.Id |> sprintf "%i") |> Option.defaultValue "")
-                  selectSearch.placeholder "Select a Charm"
-                  selectSearch.search true
-                  selectSearch.filterOptions filterOptions
-                  selectSearch.onChange
-                    ( findCharmFromId
-                      >> (fun charm -> 
-                        match charm |> Option.map (fun c -> c.Ranks) with 
-                        | Some ranks when ranks |> Array.length > 0 -> { chosenSet with Charm = charm |> Option.map (fun c -> (c, c.Ranks |> Array.sortByDescending (fun sr -> sr.Level) |> Array.head)) }
-                        | _ -> chosenSet
-                        )
-                      >> updateChosenSet
-                    )
-                  selectSearch.options [
-                      for charm in charms -> { value = charm.Id |> sprintf "%i"; name = charm.Name; disabled = false }
-                    ]
-                ]
+          SelectSearch.selectSearch [
+            selectSearch.value (chosenSet.Charm |> Option.map (fun (charm, charmRank) -> charm.Id |> sprintf "%i") |> Option.defaultValue "")
+            selectSearch.placeholder "Select a Charm"
+            selectSearch.search true
+            selectSearch.filterOptions filterOptions
+            selectSearch.onChange
+              ( findCharmFromId
+                >> (fun charm -> 
+                  match charm |> Option.map (fun c -> c.Ranks) with 
+                  | Some ranks when ranks |> Array.length > 0 -> { chosenSet with Charm = charm |> Option.map (fun c -> (c, c.Ranks |> Array.sortByDescending (fun sr -> sr.Level) |> Array.head)) }
+                  | _ -> chosenSet
+                  )
+                >> updateChosenSet
+              )
+            selectSearch.options [
+                for charm in charms -> { value = charm.Id |> sprintf "%i"; name = charm.Name; disabled = false }
               ]
-            ]
           ]
           match chosenSet.Charm with
           | None -> Html.none
           | Some (chosenCharm, charmRank) when chosenCharm.Ranks.Length = 1 ->
-            Html.div [
-              prop.children [
                 Html.text ((chosenCharm.Ranks |> Array.head).Level |> string)
-              ]
-            ]
           | Some (chosenCharm, charmRank) ->
-            Html.div [
               SelectSearch.selectSearch [
                   selectSearch.value (charmRank.Level |> string)
                   selectSearch.placeholder "Rank"
@@ -87,6 +75,5 @@ namespace Components
                       for charmRank in chosenCharm.Ranks -> { value = charmRank.Level |> sprintf "%i"; name = charmRank.Level |> sprintf "%i"; disabled = false }
                     ]
                 ]
-            ]
         ]
       ]

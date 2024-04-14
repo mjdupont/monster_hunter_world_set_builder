@@ -6,7 +6,7 @@ namespace Components
     open DataTypes
 
     [<ReactComponent>]
-    let ComponentX decorationSlotPosition (decorationSlot:DecorationSlot) (updateDecorationSlot: DecorationSlot -> unit) =
+    let Component decorationSlotPosition (decorationSlot:DecorationSlot) (updateDecorationSlot: DecorationSlot -> unit) =
       let noDecorationElement () = 
         Html.label [
           prop.children [

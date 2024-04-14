@@ -59,7 +59,7 @@ namespace Components
       let placeholder = (sprintf "Select a Size %i decoration" slot)
 
       Html.div [
-        prop.style [ style.width 300 ]
+        prop.style [ style.width 285; style.fontSize 8 ]
         prop.children [
           SelectSearch.selectSearch [
             selectSearch.search true
@@ -116,7 +116,7 @@ namespace Components
                   ]
                 ]
               ]
-              )
+            )
           ]
         ]
       ]

@@ -39,10 +39,12 @@ module ModelData
     }
     static member Empty = { First = None; Second = None; Third = None}
     static member FromSlots (slots:Slot array) =
-      match slots |> List.ofArray with
-      | [first] -> { DecorationSlots.Empty with First = Some (first, None) }
-      | [first; second] -> { DecorationSlots.Empty with First = Some (first, None); Second = Some (second, None) }
-      | [first; second; third] -> { DecorationSlots.Empty with First = Some (first, None); Second = Some (second, None); Third = Some (third, None)}
+      let (slots : (Slot * Decoration option) option array) = 
+        slots |> Array.map (function | Slot n when [1;2;3;4] |> List.contains n -> Some (Slot n, None) | _ -> None )
+      match slots with
+      | [|first|] -> { DecorationSlots.Empty with First = first }
+      | [|first; second|] -> { DecorationSlots.Empty with First = first; Second = second}
+      | [|first; second; third|] -> { DecorationSlots.Empty with First = first; Second = second; Third = third}
       | _ -> DecorationSlots.Empty
     member this.SlotFromPosition position =
       match position with
@@ -77,6 +79,19 @@ module ModelData
       Second: StoredDecorationSlot
       Third: StoredDecorationSlot
     }
+
+  // type StoredCustomWeapon =
+  //   { Attack: int 
+  //   ; Id: int
+  //   ; Name: string
+  //   ; Rarity: int
+  //   ; Slots: Slot[]
+  //   }
+
+
+  type StoredWeapon =
+  | FromList of int
+  | Custom of Weapon
 
 
   type ChosenSet =
@@ -116,8 +131,24 @@ module ModelData
         | Legs -> chosenSet.Legs
 
       static member serialize (chosenSet:ChosenSet) : string = 
+        let serializeCustomWeapon (slots:DecorationSlots) (weapon:Weapon) =
+          // Note that Slot 0 would normally not occur in a weapon (or armor) struct
+          // It is used here for custom weapons, in the case the user made a custom weapon with
+          // DecorationSlots.First of None, but DecorationSlots.Second of Some Slot N. In this case, 
+          // a direct conversion to a Slot array would drop the None first slot, leaving an array with 1 element.
+          // On deserialization, the only element would be interpreted to be the first slot,
+          // While the stored decorationslots would have the corresponding decoration in the second slot.
+          // This would default to dropping the decoration.
+          // Long story short, I should rework "Slots". TODO
+          let newSlots = [| slots.First; slots.Second; slots.Third |] |> Array.map (Option.map fst >> Option.defaultValue (Slot 0))
+          { weapon with Slots = newSlots }
+
         let storedForm : StoredChosenSet =
-          { Weapon = chosenSet.Weapon |> Option.map (fun (weapon, decoslots) -> (weapon.Id, decoslots |> DecorationSlots.serializeDecorationSlotsToStorage)) 
+          { Weapon = 
+              match chosenSet.Weapon with
+              | Some (weapon, slots) when weapon.Id = 0 -> Some (Custom (weapon |> serializeCustomWeapon slots), slots |> DecorationSlots.serializeDecorationSlotsToStorage)
+              | Some weapon -> chosenSet.Weapon |> Option.map (fun (weapon, decoslots) -> (FromList weapon.Id, decoslots |> DecorationSlots.serializeDecorationSlotsToStorage))
+              | None -> None
             Headgear = chosenSet.Headgear |> Option.map (fun (headgear, decoslots) -> (headgear.Id, decoslots |> DecorationSlots.serializeDecorationSlotsToStorage)) 
             Chest = chosenSet.Chest |> Option.map (fun (chest, decoslots) -> (chest.Id, decoslots |> DecorationSlots.serializeDecorationSlotsToStorage)) 
             Gloves = chosenSet.Gloves |> Option.map (fun (gloves, decoslots) -> (gloves.Id, decoslots |> DecorationSlots.serializeDecorationSlotsToStorage)) 
@@ -129,8 +160,8 @@ module ModelData
           }
         storedForm |> Thoth.Json.Encode.Auto.toString
 
-      static member deserialize  (decorations: Decoration seq) (weapons: Weapon seq) (armor: Armor seq) (charms: Charm seq) (storedString:string) : ChosenSet =
-        let storedForm: Result<StoredChosenSet, string>  = storedString |> Thoth.Json.Decode.Auto.fromString
+      static member deserialize (decorations: Decoration seq) (weapons: Weapon seq) (armor: Armor seq) (charms: Charm seq) (storedString:string) : ChosenSet =  
+        let storedForm: Result<StoredChosenSet, string> = storedString |> Thoth.Json.Decode.Auto.fromString
         
         /// Handle a weird case where decoration slots in data and storage disagree on decoration slots. Possibly would happen if armor is nerfed/patched.
         /// Default to using data over storage
@@ -158,11 +189,15 @@ module ModelData
             |> Option.map (fun x -> charm, x)
           | _ -> None
 
-        let lookupWeapon (weaponId, storedSlots) = 
-          weapons 
-          |> Seq.filter (fun weapon -> weapon.Id = weaponId) 
-          |> Seq.tryExactlyOne
-          |> Option.map (fun x -> x, storedSlots |> DecorationSlots.deserializeDecorationSlotsFromStorage decorations |> (mergeDecorationSlots (x.Slots |> DecorationSlots.FromSlots)))
+        let lookupWeapon (weapon:StoredWeapon, storedSlots) =
+          match weapon with 
+          | FromList id -> 
+            weapons 
+            |> Seq.filter (fun weapon -> weapon.Id = id) 
+            |> Seq.tryExactlyOne
+            |> Option.map (fun x -> x, storedSlots |> DecorationSlots.deserializeDecorationSlotsFromStorage decorations |> (mergeDecorationSlots (x.Slots |> DecorationSlots.FromSlots)))
+          | Custom weapon ->
+            Some (weapon, storedSlots |> DecorationSlots.deserializeDecorationSlotsFromStorage decorations |> (mergeDecorationSlots (weapon.Slots |> DecorationSlots.FromSlots)))
 
         let lookupArmor (armorId, storedSlots) = 
           armor 
@@ -252,7 +287,7 @@ module ModelData
 
 
   and private StoredChosenSet = 
-    { Weapon: (int * StoredDecorationSlots) option
+    { Weapon: (StoredWeapon * StoredDecorationSlots) option
       Headgear: (int * StoredDecorationSlots) option
       Chest: (int * StoredDecorationSlots) option
       Gloves: (int * StoredDecorationSlots) option
