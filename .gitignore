@@ -427,3 +427,6 @@ release.sh
 *.orig
 *.fsproj.user
 *.DotSettings.usergit a
+
+## Environment Variables:
+.env

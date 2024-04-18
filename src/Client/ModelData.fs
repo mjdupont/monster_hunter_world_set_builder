@@ -184,7 +184,8 @@ module ModelData
         let bindCharmRank charmLevel (charm:Charm) =
           match charm.Ranks with
           | ranks when ranks |> Array.length > 0 -> 
-            ranks |> Seq.filter (fun rank -> rank.Level = charmLevel)
+            ranks 
+            |> Seq.filter (fun rank -> rank.Level = charmLevel)
             |> Seq.tryExactlyOne
             |> Option.map (fun x -> charm, x)
           | _ -> None
@@ -203,7 +204,7 @@ module ModelData
           armor 
           |> Seq.filter (fun armor -> armor.Id = armorId) 
           |> Seq.tryExactlyOne
-          |> Option.map (fun x -> x, storedSlots |> DecorationSlots.deserializeDecorationSlotsFromStorage decorations|> (mergeDecorationSlots (x.Slots |> DecorationSlots.FromSlots)))
+          |> Option.map (fun x -> x, storedSlots |> DecorationSlots.deserializeDecorationSlotsFromStorage decorations |> (mergeDecorationSlots (x.Slots |> DecorationSlots.FromSlots)))
 
         let lookupCharm (charmId, level) =
           charms
@@ -226,7 +227,7 @@ module ModelData
         Browser.WebStorage.sessionStorage.setItem ("chosenSet", serialized)
 
       static member readFromWebStorage (decorations:Decoration seq) (weapons:Weapon seq) (armor: Armor seq) (charms: Charm seq) : ChosenSet =
-        Browser.WebStorage.sessionStorage.getItem ("chosenSet") |> ChosenSet.deserialize  decorations weapons armor charms
+        Browser.WebStorage.sessionStorage.getItem ("chosenSet") |> ChosenSet.deserialize decorations weapons armor charms
 
       static member skillsFromArmor ((armor:Armor), decorationSlots) =
         [| decorationSlots |> DecorationSlots.skillsfromDecorationSlots; armor.Skills |]
@@ -257,18 +258,21 @@ module ModelData
         armorSetRanks
 
       static member totalSkills (chosenSet:ChosenSet) =
-        let skillsFromArmor = 
+        let skillsFromArmor =
           [|chosenSet.Headgear
           ; chosenSet.Chest
           ; chosenSet.Gloves
           ; chosenSet.Waist
           ; chosenSet.Legs
-          |] |> Array.choose (Option.map ChosenSet.skillsFromArmor)
+          |] 
+          |> Array.choose (Option.map ChosenSet.skillsFromArmor)
           |> Array.concat
+        
         let skillsFromCharm =
           chosenSet.Charm 
           |> Option.map (fun (charm, charmRank) -> charmRank.Skills)
           |> Option.defaultValue [||]
+        
         let skillsFromWeapon = 
           chosenSet.Weapon
           |> Option.map ((fun (weapon, slots) -> [| slots |> DecorationSlots.skillsfromDecorationSlots (*; weapon.Skills*) |]) >> Array.concat)

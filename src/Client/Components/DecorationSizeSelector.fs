@@ -15,6 +15,7 @@ namespace Components
               prop.value "Size0"
               prop.name (sprintf "decosize_%i" decorationSlotPosition)
               prop.isChecked (decorationSlot.IsNone)
+              prop.readOnly true
             ]
             Html.div [
               prop.className "decotextwrap"
@@ -39,6 +40,7 @@ namespace Components
               prop.value (sprintf "Size%i" size)
               prop.name (sprintf "decosize_%i" decorationSlotPosition)
               prop.isChecked isChecked
+              prop.readOnly true
             ]
             Html.img [
               prop.src (sprintf "images\\empty_decoration_level_%i.png" size)

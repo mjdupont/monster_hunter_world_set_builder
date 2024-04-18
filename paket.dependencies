@@ -8,6 +8,8 @@ nuget Feliz.Bulma
 nuget FSharp.Core ~> 8
 nuget Fable.Remoting.Giraffe ~> 5
 nuget FSharp.Data
+nuget FSharpPlus
+nuget FSharpX.Extras
 nuget Saturn ~> 0
 nuget Expecto ~> 9
 

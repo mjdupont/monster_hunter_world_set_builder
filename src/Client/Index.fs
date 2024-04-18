@@ -5,8 +5,6 @@ open Fable.Remoting.Client
 open Shared
 
 open Feliz
-open Feliz.Bulma
-open Feliz.SelectSearch
 open DataTypes
 open ModelData
 open Components
@@ -37,6 +35,7 @@ type LoadingMHWData =
     Charms: Deferred<Charm list, string>
     Weapons: Deferred<Weapon list, string>
   }
+  
   static member Default =
     { Armor = Deferred.NotAsked 
       ArmorSets = Deferred.NotAsked
@@ -121,7 +120,6 @@ let update msg (model:Model) =
         match model.GameData with
         | PartialDeferred.Success gameData ->
           let loadedChosenset = ChosenSet.readFromWebStorage gameData.Decorations gameData.Weapons gameData.Armor gameData.Charms
-          printfn "ChosenSet: %A" loadedChosenset
           loadedChosenset
         | _ -> model.ChosenSet
       let customWeapon = (Some ({ Attack = 0; Id = 0; Name = "Custom Weapon"; Rarity = 0; Slots = [||] }, DecorationSlots.FromSlots [||]))
@@ -187,40 +185,46 @@ let view (model:Model) dispatch =
         | Legs -> { model.ChosenSet with Legs = if newPiece = model.ChosenSet.Legs then None else newPiece }
 
       Html.section [
-          prop.className "h-screen w-screen"
-          prop.style [
-              style.backgroundSize "cover"
-              //style.backgroundImageUrl "https://unsplash.it/1200/900?random"
-              style.backgroundColor "black"
-              style.backgroundPosition "no-repeat center center fixed"
+        prop.className "h-screen w-screen"
+        prop.style [
+            style.backgroundSize "cover"
+            //style.backgroundImageUrl "https://unsplash.it/1200/900?random"
+            style.backgroundColor "black"
+            style.backgroundPosition "no-repeat center center fixed"
+        ]
+        prop.children [
+          Html.a [
+              prop.href "https://safe-stack.github.io/"
+              prop.className "absolute block ml-12 h-12 w-12 bg-teal-300 hover:cursor-pointer hover:bg-teal-400"
+              prop.children [ Html.img [ prop.src "/favicon.png"; prop.alt "Logo" ] ]
           ]
-          prop.children [
-              Html.a [
-                  prop.href "https://safe-stack.github.io/"
-                  prop.className "absolute block ml-12 h-12 w-12 bg-teal-300 hover:cursor-pointer hover:bg-teal-400"
-                  prop.children [ Html.img [ prop.src "/favicon.png"; prop.alt "Logo" ] ]
+          Html.div [
+            prop.className "content flex flex-row h-full w-full gap-8" // items-center justify-center
+            prop.children [
+              Html.div [
+                prop.className "armor-summary m-auto bg-white/80 rounded-md shadow-md p-4"
+                prop.children ([armorSetSkillsElement; totalSkillsElement] |> List.concat)
               ]
               Html.div [
-                prop.className "content flex flex-row h-full w-full gap-8" // items-center justify-center
+                prop.className "armorsetbuilder m-auto flex flex-col items-center stretch center center w-max bg-white/80 rounded-md shadow-md"
                 prop.children [
-                  Html.div [
-                    prop.className "armor-summary m-auto bg-white/80 rounded-md shadow-md p-4"
-                    prop.children ([armorSetSkillsElement; totalSkillsElement] |> List.concat)
-                  ]
-                  Html.div [
-                    prop.className "armorsetbuilder m-auto flex flex-col items-center stretch center center w-max bg-white/80 rounded-md shadow-md"
-                    prop.children [
-                      //Weapon.Component gameData.Decorations gameData.Weapons model.ChosenSet.Weapon ((fun weapon -> { model.ChosenSet with Weapon = weapon }) >> UpdateChosenSet >> dispatch)
-                      WeaponBuilder.Component gameData.Decorations model.ChosenSet.Weapon ((fun weapon -> { model.ChosenSet with Weapon = weapon }) >> UpdateChosenSet >> dispatch)
-                      Armor.Component gameData.Decorations (gameData.Armor |> Seq.filter (fun a -> a.Type = Headgear)) model.ChosenSet.Headgear (updateArmorPiece Headgear >> UpdateChosenSet >> dispatch)
-                      Armor.Component gameData.Decorations (gameData.Armor |> Seq.filter (fun a -> a.Type = Chest)) model.ChosenSet.Chest (updateArmorPiece Chest >> UpdateChosenSet >> dispatch)
-                      Armor.Component gameData.Decorations (gameData.Armor |> Seq.filter (fun a -> a.Type = Gloves)) model.ChosenSet.Gloves (updateArmorPiece Gloves >> UpdateChosenSet >> dispatch)
-                      Armor.Component gameData.Decorations (gameData.Armor |> Seq.filter (fun a -> a.Type = Waist)) model.ChosenSet.Waist (updateArmorPiece Waist >> UpdateChosenSet >> dispatch)
-                      Armor.Component gameData.Decorations (gameData.Armor |> Seq.filter (fun a -> a.Type = Legs)) model.ChosenSet.Legs (updateArmorPiece Legs >> UpdateChosenSet >> dispatch)
-                      Charm.Component gameData.Charms model.ChosenSet (UpdateChosenSet >> dispatch)
-                    ]
-                  ]
+                  //Weapon.Component gameData.Decorations gameData.Weapons model.ChosenSet.Weapon ((fun weapon -> { model.ChosenSet with Weapon = weapon }) >> UpdateChosenSet >> dispatch)
+                  WeaponBuilder.Component gameData.Decorations model.ChosenSet.Weapon ((fun weapon -> { model.ChosenSet with Weapon = weapon }) >> UpdateChosenSet >> dispatch)
+                  Armor.Component gameData.Decorations (gameData.Armor |> Seq.filter (fun a -> a.Type = Headgear)) model.ChosenSet.Headgear (updateArmorPiece Headgear >> UpdateChosenSet >> dispatch)
+                  Armor.Component gameData.Decorations (gameData.Armor |> Seq.filter (fun a -> a.Type = Chest)) model.ChosenSet.Chest (updateArmorPiece Chest >> UpdateChosenSet >> dispatch)
+                  Armor.Component gameData.Decorations (gameData.Armor |> Seq.filter (fun a -> a.Type = Gloves)) model.ChosenSet.Gloves (updateArmorPiece Gloves >> UpdateChosenSet >> dispatch)
+                  Armor.Component gameData.Decorations (gameData.Armor |> Seq.filter (fun a -> a.Type = Waist)) model.ChosenSet.Waist (updateArmorPiece Waist >> UpdateChosenSet >> dispatch)
+                  Armor.Component gameData.Decorations (gameData.Armor |> Seq.filter (fun a -> a.Type = Legs)) model.ChosenSet.Legs (updateArmorPiece Legs >> UpdateChosenSet >> dispatch)
+                  Charm.Component gameData.Charms model.ChosenSet (UpdateChosenSet >> dispatch)
+                ]
+              ]             
+              Html.div [
+                prop.className "armorsetbuilder m-auto flex flex-col items-center stretch center center w-max bg-white/80 rounded-md shadow-md"
+                prop.children [
+                  SetSearcher.Component gameData.Skills (fun skills -> ())
                 ]
               ]
+            ]
           ]
+        ]
       ]
