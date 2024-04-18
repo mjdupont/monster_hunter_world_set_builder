@@ -2,13 +2,19 @@
 
   module DecorationSlots = 
     open Feliz
-    open Feliz.SelectSearch
 
     open DataTypes
     open ModelData 
+    open HelperFunctions
   
+    [<RequireQualifiedAccess>]
+    type Props' =
+      { Decorations: Decoration seq
+        ChosenDecoSlots: PropDrill<DecorationSlots>
+      }
+
     [<ReactComponent>]
-    let Component (decorations:Decoration seq) (decorationSlots:DecorationSlots) (updateChosenSet:DecorationSlots -> unit) =
+    let Component (props:Props') =
       
       let updateDecoration (newDecoration:Decoration option) (decorationSlot:DecorationSlot) : DecorationSlot = 
         decorationSlot 
@@ -22,17 +28,17 @@
       let updateDecorationSlot position (newDecoration:Decoration option) =
         let updatedDecorationSlots =
           match position with 
-          | First -> { decorationSlots with First = (decorationSlots.First |> updateDecoration newDecoration) }
-          | Second -> { decorationSlots with Second = (decorationSlots.Second |> updateDecoration newDecoration) }
-          | Third -> { decorationSlots with Third = (decorationSlots.Third |> updateDecoration newDecoration) }
-        updatedDecorationSlots |> updateChosenSet
+          | First -> { props.ChosenDecoSlots.Value with First = (props.ChosenDecoSlots.Value.First |> updateDecoration newDecoration) }
+          | Second -> { props.ChosenDecoSlots.Value with Second = (props.ChosenDecoSlots.Value.Second |> updateDecoration newDecoration) }
+          | Third -> { props.ChosenDecoSlots.Value with Third = (props.ChosenDecoSlots.Value.Third |> updateDecoration newDecoration) }
+        updatedDecorationSlots |> props.ChosenDecoSlots.Update
      
       Html.div [
         prop.className "flex flex-col"
         prop.children [
-          for position, decorationSlot in [(First, decorationSlots.First); (Second, decorationSlots.Second); (Third, decorationSlots.Third)]->
+          for position, decorationSlot in [(First, props.ChosenDecoSlots.Value.First); (Second, props.ChosenDecoSlots.Value.Second); (Third, props.ChosenDecoSlots.Value.Third)]->
           match decorationSlot with
           | None -> Html.div [ Html.h3 "-----"]
-          | Some decoSlot -> Decoration.Component decorations decoSlot (updateDecorationSlot position)
+          | Some (slot, decoration) -> Decoration.Component { Decorations = props.Decorations; Slot = slot; ChosenDecoration = {Value = decoration; Update = (updateDecorationSlot position)}}
         ]
       ]

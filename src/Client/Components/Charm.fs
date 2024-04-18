@@ -5,14 +5,23 @@ namespace Components
     open Feliz.SelectSearch
 
     open DataTypes
-    open ModelData 
+    open HelperFunctions
   
+    [<RequireQualifiedAccess>]
+    type Props' =
+      { Charms : Charm list
+        ChosenCharm: PropDrill<(Charm * CharmRank) option>
+      }
+
     [<ReactComponent>]
-    let Component charms chosenSet updateChosenSet =
-      let charms = charms
+    let Component (props:Props') =
       
+      let addDefaultRank (charm:Charm option) : (Charm * CharmRank) option = 
+        charm 
+        |> Option.bind (fun c -> c.Ranks |> Array.sortByDescending (fun sr -> sr.Level) |> Array.tryHead |> Option.map (fun cr -> c, cr))    
+
       let findCharmFromId (id:string) =
-        let matchingCharms: Charm list = charms |> List.filter (fun c -> c.Id |> sprintf "%i" = id)
+        let matchingCharms: Charm list = props.Charms |> List.filter (fun c -> c.Id |> sprintf "%i" = id)
         let matchingCharm = matchingCharms |> List.tryHead
         matchingCharm
 
@@ -38,24 +47,20 @@ namespace Components
         prop.className "charm-selector flex flex-row p-4 w-full justify-center items-center gap-8"
         prop.children [
           SelectSearch.selectSearch [
-            selectSearch.value (chosenSet.Charm |> Option.map (fun (charm, charmRank) -> charm.Id |> sprintf "%i") |> Option.defaultValue "")
+            selectSearch.value (props.ChosenCharm.Value |> Option.map (fun (charm, charmRank) -> charm.Id |> sprintf "%i") |> Option.defaultValue "")
             selectSearch.placeholder "Select a Charm"
             selectSearch.search true
             selectSearch.filterOptions filterOptions
             selectSearch.onChange
               ( findCharmFromId
-                >> (fun charm -> 
-                  match charm |> Option.map (fun c -> c.Ranks) with 
-                  | Some ranks when ranks |> Array.length > 0 -> { chosenSet with Charm = charm |> Option.map (fun c -> (c, c.Ranks |> Array.sortByDescending (fun sr -> sr.Level) |> Array.head)) }
-                  | _ -> chosenSet
-                  )
-                >> updateChosenSet
+                >> addDefaultRank
+                >> props.ChosenCharm.Update
               )
             selectSearch.options [
-                for charm in charms -> { value = charm.Id |> sprintf "%i"; name = charm.Name; disabled = false }
+                for charm in props.Charms -> { value = charm.Id |> sprintf "%i"; name = charm.Name; disabled = false }
               ]
           ]
-          match chosenSet.Charm with
+          match props.ChosenCharm.Value with
           | None -> Html.none
           | Some (chosenCharm, charmRank) when chosenCharm.Ranks.Length = 1 ->
                 Html.text ((chosenCharm.Ranks |> Array.head).Level |> string)
@@ -67,8 +72,10 @@ namespace Components
                   selectSearch.filterOptions filterOptions
                   selectSearch.onChange
                     ( findCharmRankFromLevel chosenCharm
-                      >> (fun cr -> { chosenSet with Charm = Some (chosenCharm, cr |> Option.defaultValue (chosenCharm.Ranks |> Array.sortByDescending (fun sr -> sr.Level) |> Array.head))})
-                      >> updateChosenSet
+                      >> function 
+                        | Some cr -> Some (chosenCharm, cr)
+                        | None -> chosenCharm |> Some |> addDefaultRank 
+                      >> props.ChosenCharm.Update
                     )
 
                   selectSearch.options [

@@ -122,13 +122,15 @@ module ModelData
         | ArmorType.Waist -> { chosenSet with Waist = armor }
         | ArmorType.Legs -> { chosenSet with Legs = armor }
 
-      static member getArmor armorType (chosenSet:ChosenSet) =
+      static member getPiece (armorType, (chosenSet:ChosenSet)) =
         match armorType with
         | Headgear -> chosenSet.Headgear
         | Chest -> chosenSet.Chest
         | Gloves -> chosenSet.Gloves
         | Waist -> chosenSet.Waist
         | Legs -> chosenSet.Legs
+
+      member this.getPiece armorType = ChosenSet.getPiece (armorType, this)
 
       static member serialize (chosenSet:ChosenSet) : string = 
         let serializeCustomWeapon (slots:DecorationSlots) (weapon:Weapon) =

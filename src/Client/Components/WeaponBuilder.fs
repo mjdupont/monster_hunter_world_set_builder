@@ -2,31 +2,37 @@ namespace Components
 
   module WeaponBuilder = 
     open Feliz
-    open Feliz.SelectSearch
 
     open DataTypes
     open ModelData
+    open HelperFunctions
+
+    [<RequireQualifiedAccess>]
+    type Props' =
+      { Decorations : Decoration seq
+        ChosenWeapon: PropDrill<(Weapon * DecorationSlots) option>
+      }
 
     [<ReactComponent>]
-    let Component decorations (chosenWeapon:(Weapon * DecorationSlots) option) (updateWeapon: (Weapon * DecorationSlots) option -> unit) =
+    let Component (props:Props') =
       let updateDecorationSlots decorationSlots = 
-        updateWeapon (chosenWeapon |> Option.map (fun (weapon, _) -> weapon, decorationSlots) )
+        props.ChosenWeapon.Update (props.ChosenWeapon.Value |> Option.map (fun (weapon, _) -> weapon, decorationSlots) )
 
 
       Html.div [
         prop.className "weapon-builder flex flex-row gap-8 p-4 w-full"
         prop.children [
-          match chosenWeapon with
+          match props.ChosenWeapon.Value with
           | None ->  Html.text "No Weapon Selected"
           | Some (weapon, slots) ->
             Html.div [
               prop.className "flex flex-row"
               prop.children [
-                DecorationSizeSelector.Component 1 slots.First (fun (decoSlot:DecorationSlot) -> Some (weapon, {slots with First = decoSlot}) |> updateWeapon)
-                DecorationSizeSelector.Component 2 slots.Second (fun (decoSlot:DecorationSlot) -> Some (weapon, {slots with Second = decoSlot}) |> updateWeapon)
-                DecorationSizeSelector.Component 3 slots.Third (fun (decoSlot:DecorationSlot) -> Some (weapon, {slots with Third = decoSlot}) |> updateWeapon)
+                DecorationSizeSelector.Component {Position = 1; ChosenDecoSlot = { Value = slots.First; Update = (fun (decoSlot:DecorationSlot) -> Some (weapon, {slots with First = decoSlot}) |> props.ChosenWeapon.Update) } }
+                DecorationSizeSelector.Component {Position = 2; ChosenDecoSlot = { Value = slots.Second; Update = (fun (decoSlot:DecorationSlot) -> Some (weapon, {slots with Second = decoSlot}) |> props.ChosenWeapon.Update) } }
+                DecorationSizeSelector.Component {Position = 3; ChosenDecoSlot = { Value = slots.Third; Update = (fun (decoSlot:DecorationSlot) -> Some (weapon, {slots with Third = decoSlot}) |> props.ChosenWeapon.Update) } }
               ]
             ]
-            DecorationSlots.Component decorations slots updateDecorationSlots
+            DecorationSlots.Component { Decorations = props.Decorations; ChosenDecoSlots = { Value = slots; Update = updateDecorationSlots } }
         ]
       ]

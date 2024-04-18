@@ -2,20 +2,18 @@ namespace Components
 
   module SelectedSkill = 
     open Feliz
-    open Feliz.SelectSearch
 
     open DataTypes
-    open ModelData
     
     [<RequireQualifiedAccess>]
-    type Props =
+    type Props' =
       { Skill: Skill
         Rank: int
         RemoveSkillCallBack: Skill -> unit
       }
 
     [<ReactComponent>]
-    let Component (props:Props) =
+    let Component (props:Props') =
       printfn "%A" (props.Skill, props.Rank)
 
       Html.div [

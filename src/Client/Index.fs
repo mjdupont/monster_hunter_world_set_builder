@@ -184,6 +184,11 @@ let view (model:Model) dispatch =
         | Waist -> { model.ChosenSet with Waist = if newPiece = model.ChosenSet.Waist then None else newPiece }
         | Legs -> { model.ChosenSet with Legs = if newPiece = model.ChosenSet.Legs then None else newPiece }
 
+      let armorProps armorType : Armor.Props' = 
+        let filteredArmor = gameData.Armor |> Seq.filter (fun a -> a.Type = armorType)
+        let updateArmor = (updateArmorPiece armorType >> UpdateChosenSet >> dispatch)
+        { Decorations = gameData.Decorations; Armor = filteredArmor; ChosenArmor = { Value = model.ChosenSet.getPiece armorType; Update = updateArmor}}
+
       Html.section [
         prop.className "h-screen w-screen"
         prop.style [
@@ -209,19 +214,19 @@ let view (model:Model) dispatch =
                 prop.className "armorsetbuilder m-auto flex flex-col items-center stretch center center w-max bg-white/80 rounded-md shadow-md"
                 prop.children [
                   //Weapon.Component gameData.Decorations gameData.Weapons model.ChosenSet.Weapon ((fun weapon -> { model.ChosenSet with Weapon = weapon }) >> UpdateChosenSet >> dispatch)
-                  WeaponBuilder.Component gameData.Decorations model.ChosenSet.Weapon ((fun weapon -> { model.ChosenSet with Weapon = weapon }) >> UpdateChosenSet >> dispatch)
-                  Armor.Component gameData.Decorations (gameData.Armor |> Seq.filter (fun a -> a.Type = Headgear)) model.ChosenSet.Headgear (updateArmorPiece Headgear >> UpdateChosenSet >> dispatch)
-                  Armor.Component gameData.Decorations (gameData.Armor |> Seq.filter (fun a -> a.Type = Chest)) model.ChosenSet.Chest (updateArmorPiece Chest >> UpdateChosenSet >> dispatch)
-                  Armor.Component gameData.Decorations (gameData.Armor |> Seq.filter (fun a -> a.Type = Gloves)) model.ChosenSet.Gloves (updateArmorPiece Gloves >> UpdateChosenSet >> dispatch)
-                  Armor.Component gameData.Decorations (gameData.Armor |> Seq.filter (fun a -> a.Type = Waist)) model.ChosenSet.Waist (updateArmorPiece Waist >> UpdateChosenSet >> dispatch)
-                  Armor.Component gameData.Decorations (gameData.Armor |> Seq.filter (fun a -> a.Type = Legs)) model.ChosenSet.Legs (updateArmorPiece Legs >> UpdateChosenSet >> dispatch)
-                  Charm.Component gameData.Charms model.ChosenSet (UpdateChosenSet >> dispatch)
+                  WeaponBuilder.Component { Decorations = gameData.Decorations; ChosenWeapon = { Value = model.ChosenSet.Weapon; Update = ((fun weapon -> { model.ChosenSet with Weapon = weapon }) >> UpdateChosenSet >> dispatch)}}
+                  Armor.Component (armorProps Headgear)
+                  Armor.Component (armorProps Chest)
+                  Armor.Component (armorProps Gloves)
+                  Armor.Component (armorProps Waist)
+                  Armor.Component (armorProps Legs)
+                  Charm.Component { Charms = gameData.Charms; ChosenCharm = { Value = model.ChosenSet.Charm; Update = (fun charm -> {model.ChosenSet with Charm = charm} |> (UpdateChosenSet >> dispatch)) }}
                 ]
               ]             
               Html.div [
                 prop.className "armorsetbuilder m-auto flex flex-col items-center stretch center center w-max bg-white/80 rounded-md shadow-md"
                 prop.children [
-                  SetSearcher.Component gameData.Skills (fun skills -> ())
+                  SetSearcher.Component {Skills = gameData.Skills; SubmitSkills = (fun skills -> ())}
                 ]
               ]
             ]

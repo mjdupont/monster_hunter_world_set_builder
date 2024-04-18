@@ -2,18 +2,20 @@ namespace Components
 
   module SetSearcher = 
     open Feliz
-    open Feliz.SelectSearch
 
     open DataTypes
-    open ModelData
 
-
+    [<RequireQualifiedAccess>]
+    type Props' = 
+      { Skills: Skill seq 
+        SubmitSkills: (Skill * int) list -> unit
+      }
     
     [<ReactComponent>]
-    let Component (skills:Skill list) (submitSkills: (Skill * int) list -> unit) =
+    let Component (props:Props') =
 
       let (selectedSkills:(Skill * int) list), updateSelectedSkills = React.useState []
-      let unselectedSkills = (skills |> List.filter (fun skill -> not (selectedSkills |> List.map (fst >> (fun sk -> sk.Name)) |> List.contains skill.Name)))
+      let unselectedSkills = (props.Skills |> Seq.filter (fun skill -> not (selectedSkills |> List.map (fst >> (fun sk -> sk.Name)) |> List.contains skill.Name)))
 
       let addSkill (skill:(Skill * int) option) = 
         updateSelectedSkills (selectedSkills |> List.append ([skill] |> List.choose id))
@@ -32,7 +34,7 @@ namespace Components
                 SelectedSkill.Component { Skill = skill; Rank = rank; RemoveSkillCallBack = removeSkill }
             ]
           ]
-          SkillSelector.Component unselectedSkills addSkill
+          SkillSelector.Component { Skills = unselectedSkills; AddSkill = addSkill}
         ]
       ]
       

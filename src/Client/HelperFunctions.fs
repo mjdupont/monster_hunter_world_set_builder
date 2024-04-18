@@ -25,3 +25,8 @@ module HelperFunctions
       | InProgress
       | Success of 'a
       | Failure of 'err
+
+  type PropDrill<'a> =
+    { Value : 'a
+      Update: 'a -> unit
+    }

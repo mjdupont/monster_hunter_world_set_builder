@@ -5,12 +5,19 @@ namespace Components
     open Feliz.SelectSearch
 
     open DataTypes
-    open ModelData
+    open HelperFunctions
     
+    [<RequireQualifiedAccess>]
+    type Props' =
+      { Decorations : Decoration seq
+        Slot : Slot
+        ChosenDecoration: PropDrill<Decoration option>
+      }
+
     [<ReactComponent>]
-    let Component (decorations) (slot, (decoration:Decoration option)) (setChosenDecoration:(Decoration option -> unit)) =
-      let (Slot slot) = slot
-      let decorations : Decoration list = decorations |> List.ofSeq |> List.filter (fun decoration -> decoration.Slot <= slot)
+    let Component (props:Props') =
+      let (Slot slot) = props.Slot
+      let decorations : Decoration list = props.Decorations |> List.ofSeq |> List.filter (fun decoration -> decoration.Slot <= slot)
 
       let findDecorationFromId (id:string) =
         let matchingDecoration = decorations |> List.filter (fun d -> d.Id |> sprintf "%i" = id)
@@ -66,8 +73,8 @@ namespace Components
             selectSearch.autoComplete.on
             selectSearch.placeholder placeholder
             
-            selectSearch.value ((decoration |> Option.map (fun decoration -> decoration.Id |> sprintf "%i")) |> Option.defaultValue "")
-            selectSearch.onChange (findDecorationFromId >> setChosenDecoration)
+            selectSearch.value ((props.ChosenDecoration.Value |> Option.map (fun decoration -> decoration.Id |> sprintf "%i")) |> Option.defaultValue "")
+            selectSearch.onChange (findDecorationFromId >> props.ChosenDecoration.Update)
             selectSearch.options
               [ for decoration in decorations ->
                 { value = decoration.Id |> sprintf "%i"; name = decoration.Name; disabled = false }

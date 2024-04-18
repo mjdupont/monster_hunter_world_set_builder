@@ -5,21 +5,26 @@ namespace Components
     open Feliz.SelectSearch
 
     open DataTypes
-    open ModelData
     
+    [<RequireQualifiedAccess>]
+    type Props' = 
+      { Skills: Skill seq 
+        AddSkill: (Skill * int) option -> unit
+      }
+
     [<ReactComponent>]
-    let Component (skills:Skill seq) addSkill =
+    let Component (props:Props') =
       let placeholder = "Select a Skill"
 
       let (skillAndRank: (Skill * int) option), updateSkill = React.useState (None)
 
       let findSkillFromId (id:string) = 
-        let matchingSkill = skills |> Seq.filter (fun skill -> skill.Id |> sprintf "%i" = id) |> Seq.tryExactlyOne
+        let matchingSkill = props.Skills |> Seq.filter (fun skill -> skill.Id |> sprintf "%i" = id) |> Seq.tryExactlyOne
         let matchingSkill = if matchingSkill = (skillAndRank |> Option.map fst) then None else matchingSkill
         matchingSkill |> Option.map (fun ms -> ms, ms.Ranks |> Seq.map (fun r -> r.Level) |> Seq.max )
 
       let addSkillAndClear skill = 
-        addSkill skill 
+        props.AddSkill skill 
         updateSkill None
 
 
@@ -35,7 +40,7 @@ namespace Components
             selectSearch.value ((skillAndRank |> Option.map fst |> Option.map (fun skill -> skill.Id |> sprintf "%i")) |> Option.defaultValue "")
             selectSearch.onChange (findSkillFromId >> updateSkill)
             selectSearch.options
-              [ for skill in skills ->
+              [ for skill in props.Skills ->
                 { value = skill.Id |> sprintf "%i"; name = skill.Name; disabled = false }
               ]
           ]
