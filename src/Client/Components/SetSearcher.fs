@@ -6,13 +6,13 @@ namespace Components
     open DataTypes
 
     [<RequireQualifiedAccess>]
-    type Props' = 
+    type Properties = 
       { Skills: Skill seq 
         SubmitSkills: (Skill * int) list -> unit
       }
     
     [<ReactComponent>]
-    let Component (props:Props') =
+    let Component (props:Properties) =
 
       let (selectedSkills:(Skill * int) list), updateSelectedSkills = React.useState []
       let unselectedSkills = (props.Skills |> Seq.filter (fun skill -> not (selectedSkills |> List.map (fst >> (fun sk -> sk.Name)) |> List.contains skill.Name)))

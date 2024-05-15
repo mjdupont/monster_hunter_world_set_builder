@@ -8,13 +8,13 @@
     open HelperFunctions
   
     [<RequireQualifiedAccess>]
-    type Props' =
+    type Properties =
       { Decorations: Decoration seq
         ChosenDecoSlots: PropDrill<DecorationSlots>
       }
 
     [<ReactComponent>]
-    let Component (props:Props') =
+    let Component (props:Properties) =
       
       let updateDecoration (newDecoration:Decoration option) (decorationSlot:DecorationSlot) : DecorationSlot = 
         decorationSlot 

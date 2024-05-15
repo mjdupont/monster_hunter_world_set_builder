@@ -8,13 +8,13 @@ namespace Components
     open HelperFunctions
   
     [<RequireQualifiedAccess>]
-    type Props' =
+    type Properties =
       { Charms : Charm list
         ChosenCharm: PropDrill<(Charm * CharmRank) option>
       }
 
     [<ReactComponent>]
-    let Component (props:Props') =
+    let Component (props:Properties) =
       
       let addDefaultRank (charm:Charm option) : (Charm * CharmRank) option = 
         charm 

@@ -7,13 +7,13 @@ namespace Components
     open DataTypes
     
     [<RequireQualifiedAccess>]
-    type Props' = 
+    type Properties = 
       { Skills: Skill seq 
         AddSkill: (Skill * int) option -> unit
       }
 
     [<ReactComponent>]
-    let Component (props:Props') =
+    let Component (props:Properties) =
       let placeholder = "Select a Skill"
 
       let (skillAndRank: (Skill * int) option), updateSkill = React.useState (None)

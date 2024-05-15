@@ -3,6 +3,7 @@ module DataAccess
 open FSharp.Data
 open DataTypes
 open System.Text.RegularExpressions
+open Helpers
 
 [<RequireQualifiedAccess>]
 module InferredTypes = 
@@ -359,6 +360,34 @@ module Testing =
               printfn "    %i  %s" (InferredTypes.Armor.naiveSkillPotential armorPiece) armorPiece.Name
 
     let explore_armorset_skills (armorsets: InferredTypes.ArmorSet.Api.Root array) (skills: InferredTypes.Skill.Api.Root array) =
+        let armorsetsWithSkills =
+            armorsets
+            |> Seq.choose (fun armorset ->
+                try
+                    armorset.Bonus
+                with ex -> None)
+
+        let armorSetSkills =
+            armorsetsWithSkills
+            |> Seq.map (fun armorSet ->
+                armorSet.Ranks
+                |> Seq.map (fun rank -> rank.Skill))
+            |> Seq.concat
+
+        let nonArmorSetSkills =
+            let armorSetSkillIds = armorSetSkills |> Seq.map (fun armorSetSkill -> armorSetSkill.Skill)
+            skills
+            |> Seq.filter (fun skill -> armorSetSkillIds |> Seq.contains (skill.Id) |> not)
+
+
+        printfn "Total Skills: %i, Non-Armor-Set Skills: %i" (skills |> Seq.length) (nonArmorSetSkills |> Seq.length)
+
+        printfn ""
+        printfn "Armor Set Skills: \n%A" armorSetSkills
+        printfn ""
+        printfn "Non-Armor Set Skills: \n%A" nonArmorSetSkills
+
+    let explore_armorset_skills_real (armorsets: ArmorSet array) (skills: Skill array) =
         let armorsetsWithSkills =
             armorsets
             |> Seq.choose (fun armorset ->

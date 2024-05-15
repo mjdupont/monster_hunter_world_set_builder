@@ -8,7 +8,6 @@ nuget Feliz.Bulma
 nuget FSharp.Core ~> 8
 nuget Fable.Remoting.Giraffe ~> 5
 nuget FSharp.Data
-nuget FSharpPlus
 nuget FSharpX.Extras
 nuget Saturn ~> 0
 nuget Expecto ~> 9
@@ -26,3 +25,4 @@ nuget Feliz.SelectSearch 3.1.0
 nuget Fake.Core.Target ~> 5
 nuget Fake.IO.FileSystem ~> 5
 nuget Farmer ~> 1
+nuget Thoth.Json.Net

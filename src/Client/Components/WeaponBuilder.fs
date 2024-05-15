@@ -8,13 +8,13 @@ namespace Components
     open HelperFunctions
 
     [<RequireQualifiedAccess>]
-    type Props' =
+    type Properties =
       { Decorations : Decoration seq
         ChosenWeapon: PropDrill<(Weapon * DecorationSlots) option>
       }
 
     [<ReactComponent>]
-    let Component (props:Props') =
+    let Component (props:Properties) =
       let updateDecorationSlots decorationSlots = 
         props.ChosenWeapon.Update (props.ChosenWeapon.Value |> Option.map (fun (weapon, _) -> weapon, decorationSlots) )
 

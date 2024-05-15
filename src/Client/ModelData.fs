@@ -1,7 +1,6 @@
 module ModelData
 
   open DataTypes
-  
 
   type DecorationSlot = (Slot * Decoration option) option
   type private StoredDecorationSlot = (Slot * int option) option
@@ -282,14 +281,6 @@ module ModelData
         
         [ skillsFromArmor; skillsFromCharm; skillsFromWeapon ] |> Array.concat
 
-      static member accumulateSkills (skills:SkillRank array) =
-        skills
-        |> Array.groupBy (fun sr -> sr.Skill)
-        |> Array.map (fun (skill, items) ->
-          items
-          |> Array.reduce (fun skillRankState newSkillRank ->
-            { skillRankState with Level = skillRankState.Level + newSkillRank.Level }))
-
 
 
   and private StoredChosenSet = 
@@ -303,3 +294,12 @@ module ModelData
       //Equipment_2: (Equipment * DecorationSlots)
       Charm: (int * int) option
     }
+
+  let accumulateSkills (skills:SkillRank array) =
+    skills
+    |> Array.groupBy (fun sr -> sr.Skill)
+    |> Array.map (fun (skill, items) ->
+      items
+      |> Array.reduce (fun skillRankState newSkillRank ->
+        { skillRankState with Level = skillRankState.Level + newSkillRank.Level }))
+

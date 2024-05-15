@@ -8,14 +8,14 @@ namespace Components
     open HelperFunctions
     
     [<RequireQualifiedAccess>]
-    type Props' =
+    type Properties =
       { Decorations : Decoration seq
         Slot : Slot
         ChosenDecoration: PropDrill<Decoration option>
       }
 
     [<ReactComponent>]
-    let Component (props:Props') =
+    let Component (props:Properties) =
       let (Slot slot) = props.Slot
       let decorations : Decoration list = props.Decorations |> List.ofSeq |> List.filter (fun decoration -> decoration.Slot <= slot)
 

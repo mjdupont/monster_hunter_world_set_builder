@@ -8,13 +8,13 @@ namespace Components
     open HelperFunctions
 
     [<RequireQualifiedAccess>]
-    type Props' =
+    type Properties =
       { Position: int
         ChosenDecoSlot: PropDrill<DecorationSlot>
       }
 
     [<ReactComponent>]
-    let Component (props:Props') =
+    let Component (props:Properties) =
       let noDecorationElement () = 
         Html.label [
           prop.children [

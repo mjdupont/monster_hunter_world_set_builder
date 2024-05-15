@@ -9,14 +9,14 @@ namespace Components
     open HelperFunctions
 
     [<RequireQualifiedAccess>]
-    type Props' =
+    type Properties =
       { Decorations : Decoration seq
         Weapons : Weapon seq
         ChosenWeapon: PropDrill<(Weapon * DecorationSlots) option>
       }
 
     [<ReactComponent>]
-    let Component (props:Props') =
+    let Component (props:Properties) =
       
       let findWeaponFromId (id:string) =
         let matchingPieces = props.Weapons |> Seq.filter (fun w -> w.Id |> sprintf "%i" = id)

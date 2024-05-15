@@ -6,14 +6,14 @@ namespace Components
     open DataTypes
     
     [<RequireQualifiedAccess>]
-    type Props' =
+    type Properties =
       { Skill: Skill
         Rank: int
         RemoveSkillCallBack: Skill -> unit
       }
 
     [<ReactComponent>]
-    let Component (props:Props') =
+    let Component (props:Properties) =
       printfn "%A" (props.Skill, props.Rank)
 
       Html.div [

@@ -3,12 +3,15 @@ module Index
 open Elmish
 open Fable.Remoting.Client
 open Shared
+open Helpers
 
 open Feliz
+
 open DataTypes
 open ModelData
 open Components
 open HelperFunctions.Deferred
+open SetSearchLogic
 
 type MHWDataType =
   | Armor of Armor list
@@ -131,6 +134,7 @@ let update msg (model:Model) =
       { model with ChosenSet = set}, Cmd.none
     | SetInput value -> { model with Input = value }, Cmd.none
 
+
 let view (model:Model) dispatch =
 
     match model.GameData with
@@ -139,7 +143,7 @@ let view (model:Model) dispatch =
     | PartialDeferred.Failure f -> Html.text (sprintf "Failed with \"%s\" and maybe more errors" f) 
     | PartialDeferred.Success gameData ->
       let armorSetBonuses = model.ChosenSet |> ChosenSet.armorSetBonuses gameData.ArmorSets
-      let totalSkills = (model.ChosenSet |> ChosenSet.totalSkills |> ChosenSet.accumulateSkills)
+      let totalSkills = (model.ChosenSet |> ChosenSet.totalSkills |> accumulateSkills)
       let totalSkillsElement = 
                       [ for skill in totalSkills do 
                           let skillFromData = gameData.Skills |> Seq.filter (fun skillData -> skillData.Id = skill.Skill) |> Seq.tryExactlyOne
@@ -184,11 +188,11 @@ let view (model:Model) dispatch =
         | Waist -> { model.ChosenSet with Waist = if newPiece = model.ChosenSet.Waist then None else newPiece }
         | Legs -> { model.ChosenSet with Legs = if newPiece = model.ChosenSet.Legs then None else newPiece }
 
-      let armorProps armorType : Armor.Props' = 
+      let armorProps armorType : Armor.Properties = 
         let filteredArmor = gameData.Armor |> Seq.filter (fun a -> a.Type = armorType)
         let updateArmor = (updateArmorPiece armorType >> UpdateChosenSet >> dispatch)
         { Decorations = gameData.Decorations; Armor = filteredArmor; ChosenArmor = { Value = model.ChosenSet.getPiece armorType; Update = updateArmor}}
-
+      
       Html.section [
         prop.className "h-screen w-screen"
         prop.style [
@@ -222,7 +226,7 @@ let view (model:Model) dispatch =
                   Armor.Component (armorProps Legs)
                   Charm.Component { Charms = gameData.Charms; ChosenCharm = { Value = model.ChosenSet.Charm; Update = (fun charm -> {model.ChosenSet with Charm = charm} |> (UpdateChosenSet >> dispatch)) }}
                 ]
-              ]             
+              ]            
               Html.div [
                 prop.className "armorsetbuilder m-auto flex flex-col items-center stretch center center w-max bg-white/80 rounded-md shadow-md"
                 prop.children [

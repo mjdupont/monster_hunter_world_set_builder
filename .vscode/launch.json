@@ -4,7 +4,17 @@
   // For more information, visit: https://go.microsoft.com/fwlink/?linkid=830387
   "version": "0.2.0",
   "configurations": [
-    
+    {
+      "name": "Server Test",
+      "type": "coreclr",
+      "request": "launch",
+      // "preLaunchTask": "build",
+      "program": "${workspaceFolder}/tests/Server/bin/Debug/net8.0/Server.Tests.dll",
+      "args": [],
+      "cwd": "${workspaceFolder}/tests/Server/",
+      "console": "internalConsole",
+      "stopAtEntry": false,
+    },
     {
       "name": "Full Build",
       "type": "coreclr",
