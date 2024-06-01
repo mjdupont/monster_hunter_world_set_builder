@@ -28,78 +28,77 @@ namespace Helpers
     let sequenceList ls = 
       traverseList id ls
 
-  type SymmetricMatrix<'Key, 'Value when 'Key : comparison> private (keys:Set<'Key>, initial_value: 'Value) =
-    let keyIndex = keys |> Seq.indexed |> Seq.map (fun (a, b) -> (b, a)) |> readOnlyDict
-    let mutable values = Array.create (keys |> Seq.length) initial_value
-
-    let rowIndex' (rowIdx:int) = 
+  type SymmetricMatrix<'Key, 'Value when 'Key : comparison> = 
+    private
+      { KeyIndex: System.Collections.Generic.IReadOnlyDictionary<'Key, int>
+        PairIndex: System.Collections.Generic.IReadOnlyDictionary<('Key * 'Key), int>
+        mutable Values: 'Value []
+      }
+  module SymmetricMatrix = 
+    let private rowIndex (rowIdx:int) = 
       rowIdx * (rowIdx + 1) / 2
 
-    let index' (key1:'Key) (key2:'Key) = 
-      let a, b = keyIndex[key1], keyIndex[key2]
-      if a > b then rowIndex'(a) + b else rowIndex'(b) + a
+    let private index (keyIndex:System.Collections.Generic.IReadOnlyDictionary<'Key, int>) (key1:'Key) (key2:'Key) =
+        let a, b = keyIndex[key1], keyIndex[key2]
+        if a > b then (rowIndex a) + b else (rowIndex b) + a
 
-    let singleIndex' key = 
-      let kIdx = keyIndex[key]
-      let rIdx = rowIndex' kIdx
-      let indices = 
-        // Column contribution   
-        ([kIdx+1 .. ((keys |> Seq.length)-1)]
-        |> List.map (fun x -> rowIndex' x + kIdx))
-        // Row contribution
-        @ [rIdx .. rIdx + kIdx]
-      indices
+    let get (keys) (symMatrix:SymmetricMatrix<'Key, 'Value>) =
+      symMatrix.Values[symMatrix.PairIndex[keys]]
 
-    let pairLookup =
-      let k = List.ofSeq keys
-      List.allPairs k k 
-      |> List.map (fun (k1,k2) -> (k1, k2), (index' k1 k2))
-      |> readOnlyDict
-      
+    let getMany (key) (symMatrix:SymmetricMatrix<'Key, 'Value>) =
+      [| for key' in symMatrix.KeyIndex.Keys -> symMatrix.Values[symMatrix.PairIndex[(key, key')]]|]
 
-    member this.Get((key1:'Key), (key2:'Key)) = 
-      values[pairLookup[(key1, key2)]]
+    let set (keys) newValue (symMatrix:SymmetricMatrix<'Key, 'Value>) =
+      symMatrix.Values[symMatrix.PairIndex[keys]] <- newValue
 
-    member this.GetAll(key:'Key) =
-      [| for key' in keys -> values[pairLookup[(key, key')]]|]
-
-    member this.Set(((key1:'Key), (key2:'Key)), (newValue:'Value)) =
-      values[pairLookup[(key1, key2)]] <- newValue
-
-    static member FromSeq((keyProjection: 'Value -> 'Key * 'Key), (initialValue:'Value), (elements: 'Value seq )) =
+    let fromSeq (keyProjection: 'Value -> 'Key * 'Key) (initialValue:'Value) (elements: 'Value seq ) : SymmetricMatrix<'Key, 'Value> =
       let keys = elements |> Seq.map (keyProjection >> (fun (a, b) -> [a;b])) |> Seq.concat |> Set.ofSeq
-      let symMatrix = SymmetricMatrix(keys, initialValue)
+      let keyIndex = keys |> Seq.indexed |> Seq.map (fun (a,b) -> (b,a)) |> readOnlyDict
+      let pairIndex =
+        let k = List.ofSeq keys
+        List.allPairs k k 
+        |> List.map (fun (k1,k2) -> (k1, k2), (index keyIndex k1 k2))
+        |> readOnlyDict
+      let mutable values = Array.create (rowIndex (keys |> Seq.length)) initialValue
       for e in elements do
-        symMatrix.Set(keyProjection e, e)
-      symMatrix
+        values[pairIndex[keyProjection e]] <- e
+      { KeyIndex = keyIndex; PairIndex = pairIndex; Values = values }
 
-    static member TryFromSeq((keyProjection: 'Value -> ('Key * 'Key) option), (initialValue:'Value), (elements: 'Value list )) =
-      let keys = 
+    let tryFromSeq (keyProjection: 'Value -> ('Key * 'Key) option) (initialValue:'Value) (elements: 'Value list ) : SymmetricMatrix<'Key, 'Value> option =
+      let keyValuePairs = 
         elements 
-        |> Option.traverseList (fun a -> a |> keyProjection |> Option.map (fun (a, b) -> [a;b])) 
-        |> Option.map (List.concat >> Set.ofSeq)
-      
-      keys |> Option.map (fun keys ->
-        let symMatrix = SymmetricMatrix(keys, initialValue)
-        for e in elements do
-          symMatrix.Set(keyProjection e |> Option.get, e)
-        symMatrix
+        |> Option.traverseList (fun a -> (a |> keyProjection) |> Option.map (fun k -> k, a)) 
+
+      keyValuePairs |> Option.map (fun kvps ->
+        let keys = kvps |> List.map fst |> List.map (fun (a,b) -> [a;b]) |> List.concat
+        let keyIndex = keys |> Seq.indexed |> Seq.map (fun (a,b) -> (b,a)) |> readOnlyDict
+        let pairIndex =
+          let k = List.ofSeq keys
+          List.allPairs k k 
+          |> List.map (fun (k1,k2) -> (k1, k2), (index keyIndex k1 k2))
+          |> readOnlyDict
+        let mutable values = Array.create (rowIndex (keys |> Seq.length)) initialValue
+        for k, v in kvps do
+          values[pairIndex[k]] <- v
+        { KeyIndex = keyIndex; PairIndex = pairIndex; Values = values } 
       )
 
-    static member ChooseFromSeq((keyProjection: 'Value -> ('Key * 'Key) option), (initialValue:'Value), (elements: 'Value list )) =
-      let keys = 
+    let chooseFromSeq  (keyProjection: 'Value -> ('Key * 'Key) option) (initialValue:'Value) (elements: 'Value list ) : SymmetricMatrix<'Key, 'Value> =
+      let keyValuePairs = 
         elements 
-        |> List.choose (fun a -> a |> keyProjection |> Option.map (fun (a, b) -> [a;b]))
-        |> List.concat 
-        |> Set.ofSeq
-  
-      let symMatrix = SymmetricMatrix(keys, initialValue)
-      for e in elements do
-        let keys = keyProjection e
-        match keys with
-        | None -> ()
-        | Some keys -> symMatrix.Set(keys, e)
-      symMatrix
+        |> List.choose (fun a -> (a |> keyProjection) |> Option.map (fun k -> k, a)) 
+
+      let keys = keyValuePairs |> List.map fst |> List.map (fun (a,b) -> [a;b]) |> List.concat
+      let keyIndex = keys |> Seq.indexed |> Seq.map (fun (a,b) -> (b,a)) |> readOnlyDict
+      let pairIndex =
+        let k = List.ofSeq keys
+        List.allPairs k k 
+        |> List.map (fun (k1,k2) -> (k1, k2), (index keyIndex k1 k2))
+        |> readOnlyDict
+      let mutable values = Array.create (rowIndex (keys |> Seq.length)) initialValue
+      for k, v in keyValuePairs do
+        values[pairIndex[k]] <- v
+      { KeyIndex = keyIndex; PairIndex = pairIndex; Values = values } 
 
   module Constants = 
     

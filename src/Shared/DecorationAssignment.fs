@@ -149,28 +149,27 @@ module DecorationAssignment
       | _ -> None
 
 
-  type PairDecorationLookup(keys:Set<Skill>, defaultValue:(int)) =
-    inherit SymmetricMatrix<Skill,(Decoration * int) option>(keys, None)
+  type PairDecorationLookup = PairDecorationLookup of SymmetricMatrix<Skill, (Decoration * int) option>
+  module PairDecorationLoopup = 
+    let tryGet keys (PairDecorationLookup lookup) = 
+      lookup |> SymmetricMatrix.get keys
 
-    member this.TryRemove((keys:(Skill*Skill)), (n:int)) =
-      this.Get(keys) 
-      |> Option.bind (fun (decoration, count) -> 
-        if count >= n then 
-          this.Set(keys, Some (decoration, count - n))
-          Some (List.replicate n decoration)
-        else
-          None
-      )
+    let count keys (PairDecorationLookup lookup) =
+      lookup 
+      |> SymmetricMatrix.get keys
+      |> Option.map snd
+      |> Option.defaultValue 0
 
-    member this.Count keys = 
-      this.Get(keys) |> Option.map snd |> Option.defaultValue 0
+    let countAll key (PairDecorationLookup lookup) =
+      lookup
+      |> SymmetricMatrix.getMany key
+      |> Array.sumBy (Option.map snd >> Option.defaultValue 0)
+      
+    let plusCount key lookup =
+      count (key, key) lookup
 
-    member this.CountAll key =
-      this.GetAll(key) |> Array.sumBy (Option.map snd >> Option.defaultValue 0)
-
-    static member ChooseFromSeq(args) : PairDecorationLookup = SymmetricMatrix.ChooseFromSeq(args) :?> PairDecorationLookup
-    static member TryFromSeq(args) : PairDecorationLookup option = SymmetricMatrix.TryFromSeq(args) |> Option.map (fun x -> x :?> PairDecorationLookup)
-    static member FromSeq(args) : PairDecorationLookup = SymmetricMatrix.FromSeq(args) :?> PairDecorationLookup
+    let nonPlusCount key lookup = 
+      (countAll key lookup) - (plusCount key lookup)
 
 
 
@@ -202,10 +201,10 @@ module DecorationAssignment
 
     let keysFromDecoration' = Option.bind keysFromDecoration
 
-    let pairsMatrix = PairDecorationLookup.ChooseFromSeq(keysFromDecoration', None, (pairs |> List.map Some)) :?> PairDecorationLookup
+    // Note choose here should be justified 
+    let pairsMatrix = SymmetricMatrix.chooseFromSeq keysFromDecoration' None (pairs |> List.map Some)
 
     singletons, hard, pairsMatrix, fourStarSingletons
-
 
   let decorationAssignmentHeuristic availableDecos availableSlotSizes requestedSkills = 
     let twoDArray = Array2D.create 10 10 0
@@ -270,7 +269,7 @@ module DecorationAssignment
     // Something like "reach"? "reach" - distance?
     // Remaining slots - max from decos?
 
-    // min (needed-reach)
+    // max (needed-reach)
     // - 1: 2,3 2,2 -> AB -> 1,2 1,1 -> AB -> done
     // - 2: 2,3 2,3 2,3 -> AB -> 1,2 1,2 2,2 -> AC -> 0,1 1,1 1,1 -> BC
     // - 3: 4,5 2,2 1,1 1,2 -> BA -> 3,4 1,1 1,1 1,2 -> BD -> 2,3 0,0 1,1 0,1 -> AC -> 1,2, 0,0 0,0 1,1 -> DA -> 0,0 0,0 0,0 0,0
@@ -288,3 +287,68 @@ module DecorationAssignment
 
     // 2, but only one of each?
     // 2,2 2,2 2,2 -> AB -> 1,1 1,1 2,2 -> AC -> 0,0 1,1 1,1 -> BC
+
+    // 3, but with BC available?  1 A+, 1 AB, 1 AC, 1 AD, 1 BD, 1 BC
+    // A+ AB AC AD
+    // AB BC BD
+    // AC BC
+    // AD BD
+
+    // 4,5 2,3 1,2 1,2 -> A -> 3,4 2,3 1,3 1,2 -> A+ ->
+    // 2,3 2,3 1,2 1,2 -> A -> 1,2 2,2 1,2 1,2 -> AB ->
+    // 1,2 1,2 1,2 1,2 -> A -> 0,1 1,1 1,1 1,1 -> AC -> 
+    // 0,0 1,1 0,0 1,1 -> B -> 0,0 0,0 0,0 1,0 -> BD ->
+
+    // 3, but with BC and another AB available? A+ AB AB AC AD BD BC
+    // A+ AB AB AC AD
+    // AB AB BC
+    // AC BC
+    // AD BD
+
+    // 4,5 2,3 1,2 1,2 -> A -> 3,4 2,3 1,2 1,2 -> A+ ->      AB AB AC AD BD BC
+    // 2,3 2,3 1,2 1,2 -> A -> 1,2 2,2 1,2 1,2 -> AB ->      AB AC AD BD BC
+    // 1,2 1,2 1,2 1,2 -> A -> 0,1 1,1 1,1 1,1 -> AB -> 
+    // 0,0 0,0 1,0 1,0 -> FAIL
+
+    // In simpler terms, how do we solve needing 1A 1B, 1C, 1D with 1AB, 1CD, and 1BC? How do we avoid picking 1BC first?
+
+    // Consider special:
+    // After choosing first skill, if first skill would be final, list all decorations of all other skills
+    // All other decorations with first skill, look at all other options
+    // Eliminate from seconds
+    // For all other skills, if count of remainig decos = need, eliminate other skill from seconds
+    //
+    // If none left 
+    // 1,2 1,2 1,2 1,2 -> Choose A -> SPECIAL 
+    //   Check Others -> 0,1 1,1 (AB, BC, BD) 1,1 (AC, BC) 1,1 (AD, BD)     Seconds: B, C, D
+    //   Eliminate A  -> 0,1 1,1 (BC, BD) 1,1 (BC) 1,1 (BD)             Seconds: B, C, D
+    //     B -> 2 other choices, no elimination
+    //     C -> 1 other choice - eliminate B
+    //     D -> 1 other choice - eliminate B 
+    // -> AC
+    // 0,0 1,1 0,0 1,1  - BC
+
+
+    // Consider case 3, with only antoher AB -                      A+ AB AB AC AD BD
+    // 4:  4,5 2,3 1,1 1,2 -> C -> SPECIAL
+    //   Check Others: 4,4 (A+ AB AB AC AD) 2,3 (AB BD) 0,0 () 1,2 (AD BD)
+    //   Look at: None
+    // Continue
+    //  -> (A) -> AC                                                A+ AB AB AD BD
+    // 3:  3,4 2,3 0,0 1,2 -> A -> 2,3 2,2 0,0 1,2 -> (B) -> AB ->  A+ AB AD BD
+    // 2:  2,3 1,2 0,0 1,2 -> A -> 1,2 1,1 0,0 1,1 -> (B, D) -> 
+    //   SPECIAL:
+    //     Check Others: 1,2 (A+, AB, AD) 1,1 (AB) 0,0 () 1,1 (AD BD)
+    //     Eliminate B -> 1,2 (A+, AD) 1,1 (B) 0,0 () 1,1 (AD)
+    // 
+    // 1:  0,0 0,0 1,0 1,0 -> FAIL
+
+    // General ideas: A decoration will never cause problems if it doesn't restrict another decoration
+    // A decoration restricts another decoration if it:
+    // -- Reduces the skill need such that another decoration can't be used: For example, if the only valid set of decorations needed 3 Offensive Guard/Attack decorations, and I chose an Attack/Evasion decoration when I only needed 3 attack, I've now reduced the attack need to reduce the number of decorations
+    // -- Reduces the number of decoration slots so I couldn't fit in the total number of decorations of a type that I needed.
+    // -- So in the minimum, I can safely add a decoration if after adding it:
+    //   -- My number of decoration slots is still greater than any individual skill need
+    //   -- I haven't reduced my skill need for the two skills below the highest number of decorations containing either skill
+
+    // -- Can I add a decoration if these conditions apply to the skills and their neighbors?
