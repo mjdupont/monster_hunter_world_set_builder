@@ -26,13 +26,6 @@ open DataTypes
       Edges: Edge<NodeType> list
     }
 
-  ///
-  /// Compares a SkillRank to a Skill to determine if the SkillRank is of the skill.
-  /// Used due to SkillRank having Id and Skill, which are different, and confusing, and prone to bugs.
-  /// 
-  let skillRankOfSkill (skill:Skill) (sr:SkillRank) =
-    sr.Skill = skill.Id
-
   let assembleGraph (wantedSkills: (Skill * int) list) (decorationMap : Map<Skill, Map<Decoration, int>>) (decorationSlots : Slot list) : MaxFlowPlot = 
     
     let source = [Source]
@@ -104,6 +97,8 @@ open DataTypes
       Vertices : SearchableVertex<'a> ref list
       Edges: SearchableEdge<'a> ref list
     }
+
+
 
   let initializeSearchableMaxFlowPlot (maxFlowPlot:MaxFlowPlot) : SearchableMaxFlowPlot<NodeType> =
     let nodes = 

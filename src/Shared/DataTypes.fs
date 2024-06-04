@@ -177,3 +177,10 @@ type Weapon =
     ; Attack = 0
     ; Slots = slots
     }
+
+///
+/// Compares a SkillRank to a Skill to determine if the SkillRank is of the skill.
+/// Used due to SkillRank having Id and Skill, which are different, and confusing, and prone to bugs.
+/// 
+let skillRankOfSkill (skill:Skill) (sr:SkillRank) =
+  sr.Skill = skill.Id
