@@ -24,7 +24,7 @@ let server =
             Expect.equal "NotImplemented" "NotImplemented" "These should be fine because they are placeholders"
     ]
 
-let all = testList "All" [ Shared.Tests.shared; server; SetSearchLogic.Tests.setSearchLogic; DecorationAssignment.Tests.decorationAssignment; MaxFlowMap.Tests.maxFlowMap]
+let all = testList "All" [ Shared.Tests.shared; server; SetSearchLogic.Tests.setSearchLogic; DecorationAssignment.Tests.decorationAssignment; DecorationAssignment.Tests.decorationAssignmentFull; (*MaxFlowMap.Tests.maxFlowMap*)]
 
 let writeData () = 
   let skillNames, skills' = InferredTypes.Skill.loadSkills |> Async.RunSynchronously

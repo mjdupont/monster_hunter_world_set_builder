@@ -10,6 +10,14 @@ module DecorationAssignment
     sr.Skill = skill.Id
 
   ///
+  /// Returns the skills contained in a Decoration, along with their levels.
+  /// 
+  let containedSkills (skills: Skill list) (deco:Decoration) = 
+    deco.Skills 
+    |> Array.choose (fun decoSr -> skills |> List.filter (fun sk -> skillRankOfSkill sk decoSr) |> List.tryExactlyOne |> Option.map (fun sk -> sk, decoSr.Level))
+    |> List.ofArray
+
+  ///
   /// Check if a given decoration provides a given skill.
   /// 
   let decoContainsSkill (skill:Skill) (deco: Decoration) = 
@@ -59,296 +67,186 @@ module DecorationAssignment
     wantedSkills 
     |> List.forall (fun (skill, nWanted) -> decorationsAvailable skill >= nWanted)
 
+  // Algorithm Approach:
+  //
+  // Preparation:
+  // Shrink decorations to include only those for which all skills they can provide are requested.
+  // Set aside all wildcard "Any 4* with" decorations for all 4* decorations with only one skill contributing.
+  // Verify we have enough decorations + slots to satisfy each skill
+  // If we have excess slots such that our requested skills is greater than our skill capacity, set aside extra slots
+  // Move to assignment:
+  //
+  // Choose a decoration for which all skills can contribute, but not over-cap. 
+  // Start with 4* as singleton decorations are generally easier to get/fill/solve.
+  // Assign that decoration.
+  // Repeat until no decorations exist for which all skills can contribute.
+  // Check if we have satisfied skills; if not, move to replacement.
+  //
+  // Replacement:
+  // Considerations:
+  // We may not have a valid assignment, if we have enough slots to provide all skill points, and enough decorations in each skill, but no valid way to assign them.
+  // - Example: I want 2 Attack, 2 Crit, 2 Offensive Guard, in 3 slots, with a Crit+, Attack +, Offensive Guard/Attack, and Offensive Guard/Crit Deco.
+  // All decorations started able to contribute both skills
+  // - Any remaining decorations no longer can contribute both skills because other assigned decorations capped out one or more of their skills.
+  // If we removed an existing decoration, we might open up decorations that now could fully contribute. 
+  // Given assigned Decos AD, and remaining decos RD, can we find a pair in RD whose skill contribution is greater than the best pair of one AD + RD?
 
-  ///
-  /// Captures a list of slots to allocate decorations to, and returns a function which will emit slots as requested until the captured list would be empty.
-  /// 
-  /// Allocates smallest slots for a requested size first, then larger slots if available.
-  /// If insufficient slots remain, will return None.
-  /// 
-  let captureSlotsToAllocate (availableSlotSizes: Map<Slot, int>) : int -> Slot -> Slot list option =
-    let mutable unallocatedSlotSizes = availableSlotSizes
-    let rec allocate n ((Slot slotSize) as slot) : Slot list option = 
-      match slotSize with 
-      | s when s > 3 -> None
-      | s ->
-        let slotsToAllocate = unallocatedSlotSizes |> Map.find slot
-        match n, slotsToAllocate with
-        | requested, available when available < requested ->
-          unallocatedSlotSizes <- unallocatedSlotSizes |> Map.add slot 0
-          let sameSize = List.replicate available slot
-          let larger = allocate (requested - available) (Slot (slotSize + 1))
-          larger |> Option.map (fun l -> sameSize @ l)
-        | requested, available -> // when available >= requested
-          unallocatedSlotSizes <- unallocatedSlotSizes |> Map.add slot (available - requested)
-          Some (List.replicate requested slot)
-    allocate
+  type DecorationContribution =
+  | FullContribution of Decoration
+  | PartialContribution of Decoration
+  | NoContribution of Decoration
+
+  let decorationContribution skills requestedSkills decoration = 
+    let containedSkills = decoration |> containedSkills skills
+
+    let fullyContributes ((containedSkill:Skill), (containedLevel:int)) ((requestedSkill:Skill), (requestedLevel:int)) =
+      (containedSkill = requestedSkill) && (containedLevel <= requestedLevel)
+
+    let partiallyContributes ((containedSkill:Skill), (containedLevel:int)) ((requestedSkill:Skill), (requestedLevel:int)) =
+      (containedSkill = requestedSkill)
+
+    let allContainedSkillsContribute requestedSkills containedSkills = 
+      containedSkills |> List.forall (fun containedSkill -> requestedSkills |> List.exists (fullyContributes containedSkill))
+    
+    let someContainedSkillsContribute requestedSkills containedSkills = 
+      containedSkills |> List.exists (fun containedSkill -> requestedSkills |> List.exists (partiallyContributes containedSkill))
+    
+    match containedSkills with
+    | cs when cs |> (allContainedSkillsContribute requestedSkills) -> FullContribution decoration
+    | cs when cs |> (someContainedSkillsContribute requestedSkills) -> PartialContribution decoration
+    | _ -> NoContribution decoration
 
 
-  ///
-  /// Tries to assign decorations from a given list into the provided slots. Returns None if unable to do so.
-  /// 
-  let assignNonFourDecorations (wantedSkills: (Skill * int) list) (decoMap : Map<Skill, Map<Decoration, int>>) (decorationSlots : Slot list) = 
-    // Sanitization, preparing data structures for later
-    let decorationSlots = decorationSlots |> List.filter (fun (Slot slot) -> List.contains slot [1;2;3] )
-    let decorations : Decoration list = 
-      decoMap 
-      |> Map.values 
-      |> List.ofSeq
-      |> List.map (fun m -> 
-          m 
-          |> Map.toList 
-          |> List.map (fun (k,v) -> k)
-        )
-      |> List.concat
+  let isContributingSkill (remainingSkillNeed: (Skill * int) list) (skill, level) =
+    remainingSkillNeed 
+    |> List.filter (fun (rSkill, rLevel) -> rSkill = skill && rLevel >= level)
+    |> List.length >= 1
+  
+  let fullyContributes (skills: Skill list) (remainingSkillNeed: (Skill * int) list) decoration =
+    let containedSkills = decoration |> containedSkills skills
+    containedSkills |> List.forall (isContributingSkill remainingSkillNeed)
 
-    let singletonDecorations = 
-      decoMap 
-        |> Map.map (fun skill decorations -> 
-          decorations 
-          |> Map.toList 
-          |> List.choose (fun (deco, n) -> if isSingletonDecoration skill deco then Some (deco, n) else None )
-          |> List.tryExactlyOne
-          )
-        |> Map.filter (fun key value -> value.IsSome)
-        |> Map.map (fun key value -> value |> Option.get )
+  let validDecoration (skills: Skill list) (remainingSkillNeed: (Skill * int) list) (Slot slotSize) (decoration: Decoration) =
+    fullyContributes skills remainingSkillNeed decoration
+    && decoration.Slot <= slotSize
 
-    // First, check if we even have enough decorations in our list for each skill.
-    if not (haveEnoughDecorations wantedSkills singletonDecorations) then None else
-      /// If we have enough decorations, check if we can assign to slots
-      let skillsBySlotSize = 
-        wantedSkills 
-        |> List.groupBy (fun (skill, lvl) -> skill |> decorationSlotSize decorations)
-        |> List.choose (fun (slot, skills) -> slot |> Option.map (fun sl -> sl, skills))
-        |> Map.ofList
+  let findValidDecorations (skills: Skill list) (remainingSkillNeed: (Skill * int) list) (decorations: Decoration list) (Slot slotSize) = 
+    let validDecorations, nonContributingDecorations = decorations |> List.partition (validDecoration skills remainingSkillNeed (Slot slotSize))
+    validDecorations |> (function | [] -> None | decos -> Some (decos, nonContributingDecorations))
 
-      let decosNeededBySlotSize = 
-        skillsBySlotSize |> Map.map (fun key value -> value |> List.map snd |> List.sum)
+  let validExactDecoration (skills: Skill list) (remainingSkillNeed: (Skill * int) list) (Slot slotSize) (decoration: Decoration) =
+    fullyContributes skills remainingSkillNeed decoration
+    && decoration.Slot = slotSize
 
-      let availableSlotSizes = 
-        decorationSlots |> List.countBy id |> Map.ofList
+  let findValidExactDecorations (skills: Skill list) (remainingSkillNeed: (Skill * int) list) (decorations: Decoration list) (Slot slotSize) = 
+    let validDecorations, nonContributingDecorations = decorations |> List.partition (validExactDecoration skills remainingSkillNeed (Slot slotSize))
+    validDecorations |> (function | [] -> None | decos -> Some (decos, nonContributingDecorations))
+  
+  
+  let updateRemainingSkillNeed (skills: Skill list) (newDecoration: Decoration) (skillNeed: (Skill * int) list) =
+    let newlyAddedSkills = newDecoration |> containedSkills skills
+    let folder rSkillNeed (skillToRemove, valueToRemove) =
+      rSkillNeed |> List.map (fun (rSkill, rValue) -> if rSkill = skillToRemove then rSkill, rValue - valueToRemove else rSkill, rValue)
+    newlyAddedSkills |> List.fold folder skillNeed
 
-      let asTriple (map:Map<Slot, int>) =
-        ( map |> Map.tryFind (Slot 1) |> Option.defaultValue 0
-        , map |> Map.tryFind (Slot 2) |> Option.defaultValue 0
-        , map |> Map.tryFind (Slot 3) |> Option.defaultValue 0
-        )
-      
-      match decosNeededBySlotSize |> asTriple, availableSlotSizes |> asTriple with
-      | (n1, n2, n3), (a1, a2, a3) when (a3 >= n3) && ((a3+a2) >= (n3 + n2)) && ((a3+a2+a1) >= (n3+n2+n1)) -> 
-        let allocate = captureSlotsToAllocate availableSlotSizes
-        [ for slot, skillsNeeded in skillsBySlotSize |> Map.toList |> List.sortByDescending (fun ((Slot slot), _skillList) -> slot) do
-            for skill, nNeeded in skillsNeeded do
-              let decoration, n = singletonDecorations |> Map.find skill 
-              let chosenDecorations = List.replicate n decoration
-              let slots = allocate nNeeded slot
-              slots |> Option.map (fun s -> List.zip s chosenDecorations)
-        ] 
-        |> Option.sequenceList 
-        |> Option.map List.concat
+  open Helpers.List
+  // TODO: Rename this
+  let updateRemainingSkillNeedRemovedDecoration (skills: Skill list) (newDecoration: Decoration) (skillNeed: (Skill * int) list) =
+    let removedSkills = newDecoration |> containedSkills skills
+    let folder rSkillNeed (skillToAdd, valueToAdd) =
+      rSkillNeed |> List.map (fun (rSkill, rValue) -> if rSkill = skillToAdd then rSkill, rValue + valueToAdd else rSkill, rValue)
+    removedSkills |> List.fold folder skillNeed
+
+
+  // A successful replacement will return Some if:
+  // After removing the candidate decoration:
+  // - I can choose another decoration to fully populate this slot
+  // - I can choose another decoration slot, for which I can fully populate the slot
+  let tryReplaceOneDecorationWithTwo skills unusedSlots unusedDecorations skillNeed (slot, decoration) : (((Slot * Decoration) * (Slot * Decoration)) * (Slot list * Decoration list * Decoration list)) option =
+    let skillNeedWithoutDecoration = skillNeed |> updateRemainingSkillNeedRemovedDecoration skills decoration 
+
+    match slot |> findValidDecorations skills skillNeedWithoutDecoration unusedDecorations with
+    | None -> None
+    | Some (validDecorations, invalidDecorations) ->
+      let findDecorationAllowingSecondSlot remainingDecorations decoration : ((Slot * Decoration) * (Slot list * Decoration list * Decoration list)) option = 
+        let skillNeedAfterFirstReplacement = skillNeedWithoutDecoration |> updateRemainingSkillNeed skills decoration
+        let slotThatFitsASecondDecoration = unusedSlots |> List.tryRemoveByAndWith (findValidDecorations skills skillNeedAfterFirstReplacement remainingDecorations)
+        match slotThatFitsASecondDecoration with
+        | Some ((matchingSlot, unmatchingSlots), (secondValidDecoration :: otherValidDecorations, invalidDecorations2)) ->
+          Some ((matchingSlot, secondValidDecoration), (unmatchingSlots, otherValidDecorations, List.concat [invalidDecorations; invalidDecorations2]))
+        | _ -> None
+
+
+      match validDecorations |> List.tryRemoveByAndWithR findDecorationAllowingSecondSlot with
+      | Some ((firstDecoration, unmatchedDecorations), ((secondSlot, secondDecoration), (unmatchedSlots, validDecorations, invalidDecorations))) -> 
+        Some (((slot, firstDecoration), (secondSlot, secondDecoration)), (unmatchedSlots, validDecorations, invalidDecorations))
       | _ -> None
-
-
-  type PairDecorationLookup = PairDecorationLookup of SymmetricMatrix<Skill, (Decoration * int) option>
-  module PairDecorationLoopup = 
-    let tryGet keys (PairDecorationLookup lookup) = 
-      lookup |> SymmetricMatrix.get keys
-
-    let count keys (PairDecorationLookup lookup) =
-      lookup 
-      |> SymmetricMatrix.get keys
-      |> Option.map snd
-      |> Option.defaultValue 0
-
-    let countAll key (PairDecorationLookup lookup) =
-      lookup
-      |> SymmetricMatrix.getMany key
-      |> Array.sumBy (Option.map snd >> Option.defaultValue 0)
       
-    let plusCount key lookup =
-      count (key, key) lookup
-
-    let nonPlusCount key lookup = 
-      (countAll key lookup) - (plusCount key lookup)
 
 
 
-  let buildDecorationStructures (requestedSkills:(Skill * int) list) (decorations:(Decoration * int) list) =
-    let skills = requestedSkills |> List.map fst
 
-    let containsRequestedSkill ((decoration, _count):(Decoration * int)) = 
-      decoration.Skills |> Array.exists (fun sr -> skills |> List.exists (fun skill -> skillRankOfSkill skill sr))
+  let assignDecorations 
+    (skills : Skill list)
+    (requestedSkills : (Skill * int) list) 
+    (decorationSlots : Slot list)
+    (decorations : (Decoration list))
+    : (Slot * Decoration option) list option =
 
-    let isHardDecoration ((decoration, _count):(Decoration * int)) = 
-      (decoration.Skills |> Array.head).Level = 3
+      let rec reassignDecoration' 
+        (remainingSkillNeed: (Skill * int) list) 
+        ((assignedDecorationSlots : (Slot * Decoration) list), (unassignedDecorationSlots : Slot list)) 
+        ((fullContributingDecorations : Decoration list), (replacementDecorations : Decoration list)) 
+        : (Slot * Decoration option) list option =
+        match remainingSkillNeed |> List.filter (fun (skill, need) -> need > 0) with
+        | [] -> 
+          let assignedSlots = assignedDecorationSlots |> List.map (fun (slot, deco) -> slot, Some deco)
+          let unassignedSlots = unassignedDecorationSlots |> List.map (fun slot -> slot, None)
+          Some (List.concat [assignedSlots; unassignedSlots])
+        | _ ->
 
-    let isPair ((decoration, _count):(Decoration * int)) = 
-      decoration.Skills |> Array.forall (fun sr -> skills |> List.exists (fun skill -> skillRankOfSkill skill sr))
+          // We want to have a function that recursively checks until two decoration slots can be fit with new decorations at maximum contribution.
+          // This function should return an option so we can use it with tryRemoveByAndWith
+          let projectionForRemovedSlots = (tryReplaceOneDecorationWithTwo skills unassignedDecorationSlots replacementDecorations remainingSkillNeed)
 
-    let decorations = decorations |> List.filter containsRequestedSkill
-    let singletons, fourStars = decorations |> List.partition (fun (decoration, n) -> decoration.Slot < 4)
-    let hard, remainingFourStars = fourStars |> List.partition isHardDecoration
-    let pairs, fourStarSingletons = remainingFourStars |> List.partition isPair
-
-    let keysFromDecoration ((decoration:Decoration), (n:int)) =
-      match decoration.Skills with
-      | [|sr|] -> skills |> List.filter (fun skill -> skillRankOfSkill skill sr) |> List.tryExactlyOne |> Option.map (fun skill -> skill, skill)
-      | [|sr1; sr2|] -> 
-        let sk1 = skills |> List.filter (fun skill -> skillRankOfSkill skill sr1) |> List.tryExactlyOne
-        let sk2 = skills |> List.filter (fun skill -> skillRankOfSkill skill sr2) |> List.tryExactlyOne
-        sk1 |> Option.bind (fun sk1 -> sk2 |> Option.map (fun sk2 -> sk1, sk2))
-      | _ -> None
-
-    let keysFromDecoration' = Option.bind keysFromDecoration
-
-    // Note choose here should be justified 
-    let pairsMatrix = SymmetricMatrix.chooseFromSeq keysFromDecoration' None (pairs |> List.map Some)
-
-    singletons, hard, pairsMatrix, fourStarSingletons
-
-  let decorationAssignmentHeuristic availableDecos availableSlotSizes requestedSkills = 
-    let twoDArray = Array2D.create 10 10 0
-    let test = (twoDArray |> Array2D.get) 4, 4
-    0
-    
-    // Elimination of impossibles: 
-      // - We don't have enough of a skill in our decorations to meet the requested skills
-      // - The sum of requested skills is greater than the max capacity of the slot sizes
-    
-    // If the above is true, we can maybe make an assignment.
-    // How to deal with 4* 
-    // - Find distance between current needs and "solvable with singleton only" needs
-    // - -  Current needs: 
-    // - - - May not have enough singleton decorations for a skill, that could be solved with 4*
-    // - - - May not have enough total decoration capacity for skills if assigned as singletons
-    // - - Singleton only needs:
-    // - - - Enough singleton decorations to meet each skill need
-    // - - - Enough slot capacity to fill all skills of a size
-
-    // - Need to augment Singleton only algorithm to allow for 4*, to solve first current need limitation
-    // - - 4* slots can be assigned to, 
-    // - - 4* singleton decorations are available and can be assigned
-    // - - - 4* singletons must be assigned first, and only until we can assign with true singletons
-    // - - - - Calculate difference between true singleton and 4* singleton decorations available
-    // - - - - Effectively, first assign only the 4* singletons needed, then we can do normal assignment as above
-
-    // - Then, need to solve getting from current needs to augmented singleton only needs
-    // - - Calculate gap in:
-    // - - - Slot capacity vs skills needed - If skills needed exceed slots, we need this many decorations "double dipping"
-    // - - - Problems example 1: 
-    // - - - - For skills A and B:
-    // - - - - I have an A+ decoration, and two AB decorations. I need 2 A and 2 B skills, across 2 4* slots. Assigning the A+ is incorrect because A+ and AB overcap A and don't meet B.
-    // - - - Problem example 2:
-    // - - - - For skills A, B, C:
-    // - - - - I have 3 4* slots. I need 2 points for each of A, B, and C. I have 2 of each AB, AC, and BC decorations. 
-    // - - - - An assignment of AB, AB will not work, because I do not have a C+ decoration.
-    // - - - Both problems seem to stem from when the needed amount for a skill hits 0, as this reduces the number of available decorations.
-    // - - - 
-    // - - - Problem example 3:
-    // - - - - I have skills A, B, C, D: I need 4 A, 2B, 1C, 1D.
-    // - - - - I have 4 4* slots. I have 1 A+, 1 AB, 1 AC, 1 AD, 1 BD
-    // - - - - If I assign from the skill with the highest amount needed, 
-    // - - - - I might assign (4, 2, 1, 1) -> AB (3, 1, 1, 1) -> AC (2, 1, 0, 1) -> AD (1, 1, 0, 0). I don't have a second AB, so I can't solve this.
-    // - - - This contrasts with the first case, where assigning A+ last would be better.
-    // - - - Problem example 4:
-    // - - - - I need skills 4A, 1B, 1C, 1D, 1E - I have A+, AB, AC, AD, AE. I would need AB/AC/AD/AE; can't choose A+ first
-    
-    // Things that won't work:
-    // - Choose decoration that satisfies highest skill(s)? - Fails Examples 3
-    // - Assign decoration+ first? - Fails Example 1, 4
-    // - Assign decorations by skill with fewest decorations? - Fails Example 2
-
-    // Thoughts:
-    // Look at minimizing decoration loss? As in, if I satisfy a skill, which decoration options do I lose?
-    // Skills needed vs skills available in decorations?
-    // - 1: A: (2, 4) -> 2, B: (2, 2) -> 0; choose decoration with B -> choose decoration with B
-    // - 2: (2,4) (2,4) (2,4) -> AB -> (1,3) (1,3) (2,4) -> 0,2 0,2 2,4
-    // - 3: 4,5 2,2 1,1 1,2 -> Choose B, AB vs BD are equivalent -> AB -> 3,4 1,1 1,1 1,2 -> BD -> 3,4 0,0 1,1 0,1 -> eliminate AD -> 3,3 0,0 1,1 0,0 -> AC -> AA
-    // - 4: 4,6 1,1 1,1 1,1 1,1 -> AB -> 3,5 0,0 1,1 1,1 1,1 -> AC -> 2,4 0,0 0,0 1,1 1,1 -> AD -> 1,3, 0,0 0,0, 0,0, 1,1 -> AE -> done
-
-    // Something like "reach"? "reach" - distance?
-    // Remaining slots - max from decos?
-
-    // max (needed-reach)
-    // - 1: 2,3 2,2 -> AB -> 1,2 1,1 -> AB -> done
-    // - 2: 2,3 2,3 2,3 -> AB -> 1,2 1,2 2,2 -> AC -> 0,1 1,1 1,1 -> BC
-    // - 3: 4,5 2,2 1,1 1,2 -> BA -> 3,4 1,1 1,1 1,2 -> BD -> 2,3 0,0 1,1 0,1 -> AC -> 1,2, 0,0 0,0 1,1 -> DA -> 0,0 0,0 0,0 0,0
-    // - 4: 4,5 1,1 1,1 1,1 1,1 -> BA -> 3,4 0,0 1,1 1,1 1,1 -> CA -> 2,3 0,0 0,0 1,1 1,1 -> DA -> 1,2 0,0 0,0 0,0 1,1 -> EA -> 0,0 0,0 0,0 0,0 0,0
-    
-    // - 4, but with BC as well
-    // 4,5 1,2 1,2 1,1 1,1 -> DA -> 3,4 1,2 1,2 0,0 1,1 -> EA -> 2,3 1,2 1,2 0,0 0,0 -> A+ -> 0,1 1,1 1,1 0,0 0,0 -> BC -> it works?
-    // 2, but minus BC?
-    // 2,3 2,3 2,3 -> AB -> 1,2 1,2 2,2 -> AC -> 0,1 1,1 1,1 -> BC
-    // 2,3 2,3 2,3 -> AC -> 1,2 2,2 1,2 -> BA -> 0,1 1,1 1,1 -> BC
-    // 2,3 2,3 2,3 -> BC -> 2,2 1,2 1,2 -> AB -> 1,1 0,1 1,1 -> AC
-
-    // 2, but minus an AB and a BC?
-    // 2,3 2,2 2,3 -> AB -> 1,2 1,1 2,2 -> BC -> 1,1, 0,0 1,1 -> AC
-
-    // 2, but only one of each?
-    // 2,2 2,2 2,2 -> AB -> 1,1 1,1 2,2 -> AC -> 0,0 1,1 1,1 -> BC
-
-    // 3, but with BC available?  1 A+, 1 AB, 1 AC, 1 AD, 1 BD, 1 BC
-    // A+ AB AC AD
-    // AB BC BD
-    // AC BC
-    // AD BD
-
-    // 4,5 2,3 1,2 1,2 -> A -> 3,4 2,3 1,3 1,2 -> A+ ->
-    // 2,3 2,3 1,2 1,2 -> A -> 1,2 2,2 1,2 1,2 -> AB ->
-    // 1,2 1,2 1,2 1,2 -> A -> 0,1 1,1 1,1 1,1 -> AC -> 
-    // 0,0 1,1 0,0 1,1 -> B -> 0,0 0,0 0,0 1,0 -> BD ->
-
-    // 3, but with BC and another AB available? A+ AB AB AC AD BD BC
-    // A+ AB AB AC AD
-    // AB AB BC
-    // AC BC
-    // AD BD
-
-    // 4,5 2,3 1,2 1,2 -> A -> 3,4 2,3 1,2 1,2 -> A+ ->      AB AB AC AD BD BC
-    // 2,3 2,3 1,2 1,2 -> A -> 1,2 2,2 1,2 1,2 -> AB ->      AB AC AD BD BC
-    // 1,2 1,2 1,2 1,2 -> A -> 0,1 1,1 1,1 1,1 -> AB -> 
-    // 0,0 0,0 1,0 1,0 -> FAIL
-
-    // In simpler terms, how do we solve needing 1A 1B, 1C, 1D with 1AB, 1CD, and 1BC? How do we avoid picking 1BC first?
-
-    // Consider special:
-    // After choosing first skill, if first skill would be final, list all decorations of all other skills
-    // All other decorations with first skill, look at all other options
-    // Eliminate from seconds
-    // For all other skills, if count of remainig decos = need, eliminate other skill from seconds
-    //
-    // If none left 
-    // 1,2 1,2 1,2 1,2 -> Choose A -> SPECIAL 
-    //   Check Others -> 0,1 1,1 (AB, BC, BD) 1,1 (AC, BC) 1,1 (AD, BD)     Seconds: B, C, D
-    //   Eliminate A  -> 0,1 1,1 (BC, BD) 1,1 (BC) 1,1 (BD)             Seconds: B, C, D
-    //     B -> 2 other choices, no elimination
-    //     C -> 1 other choice - eliminate B
-    //     D -> 1 other choice - eliminate B 
-    // -> AC
-    // 0,0 1,1 0,0 1,1  - BC
+          let maybeRemovableDecorationSlot = assignedDecorationSlots |> List.tryRemoveByAndWith projectionForRemovedSlots
+          match maybeRemovableDecorationSlot with
+          | Some (((replacedSlot, replacedDecoration), remainingAssignedDecorations), (((firstNewSlot, firstNewDecoration), (secondNewSlot, secondNewDecoration)), (unassignedSlots, validDecorations, invalidDecorations)) ) -> 
+            let newAssignedDecorationSlots = (secondNewSlot, secondNewDecoration) :: (firstNewSlot, firstNewDecoration) :: remainingAssignedDecorations
+            let newSkillNeed = 
+              remainingSkillNeed 
+              |> updateRemainingSkillNeed skills firstNewDecoration
+              |> updateRemainingSkillNeed skills secondNewDecoration
+            let stillFullyContributing, noLongerContributingAfterAssignment = validDecorations |> List.partition (fullyContributes skills newSkillNeed) 
 
 
-    // Consider case 3, with only antoher AB -                      A+ AB AB AC AD BD
-    // 4:  4,5 2,3 1,1 1,2 -> C -> SPECIAL
-    //   Check Others: 4,4 (A+ AB AB AC AD) 2,3 (AB BD) 0,0 () 1,2 (AD BD)
-    //   Look at: None
-    // Continue
-    //  -> (A) -> AC                                                A+ AB AB AD BD
-    // 3:  3,4 2,3 0,0 1,2 -> A -> 2,3 2,2 0,0 1,2 -> (B) -> AB ->  A+ AB AD BD
-    // 2:  2,3 1,2 0,0 1,2 -> A -> 1,2 1,1 0,0 1,1 -> (B, D) -> 
-    //   SPECIAL:
-    //     Check Others: 1,2 (A+, AB, AD) 1,1 (AB) 0,0 () 1,1 (AD BD)
-    //     Eliminate B -> 1,2 (A+, AD) 1,1 (B) 0,0 () 1,1 (AD)
-    // 
-    // 1:  0,0 0,0 1,0 1,0 -> FAIL
+            reassignDecoration' newSkillNeed (newAssignedDecorationSlots, unassignedSlots) (stillFullyContributing, List.concat [noLongerContributingAfterAssignment; invalidDecorations])
 
-    // General ideas: A decoration will never cause problems if it doesn't restrict another decoration
-    // A decoration restricts another decoration if it:
-    // -- Reduces the skill need such that another decoration can't be used: For example, if the only valid set of decorations needed 3 Offensive Guard/Attack decorations, and I chose an Attack/Evasion decoration when I only needed 3 attack, I've now reduced the attack need to reduce the number of decorations
-    // -- Reduces the number of decoration slots so I couldn't fit in the total number of decorations of a type that I needed.
-    // -- So in the minimum, I can safely add a decoration if after adding it:
-    //   -- My number of decoration slots is still greater than any individual skill need
-    //   -- I haven't reduced my skill need for the two skills below the highest number of decorations containing either skill
+          | _ -> None
+        
 
-    // -- Can I add a decoration if these conditions apply to the skills and their neighbors?
+      and assignDecoration' 
+        (remainingSkillNeed: (Skill * int) list) 
+        ((assignedDecorationSlots : (Slot * Decoration) list), (unassignedDecorationSlots : Slot list)) 
+        ((fullContributingDecorations : Decoration list), (replacementDecorations : Decoration list)) 
+        : (Slot * Decoration option) list option =
+
+        match unassignedDecorationSlots |> List.tryRemoveByAndWith (findValidDecorations skills remainingSkillNeed fullContributingDecorations) with
+        | Some ((decorationSlot, remainingSlots), (fullyContributingDecoration :: otherFullyContributingDecorations, noLongerContributingDecorations)) ->
+          let newlyAssignedSlot = decorationSlot, fullyContributingDecoration          
+          let newRemainingSkillNeed = remainingSkillNeed |> updateRemainingSkillNeed skills fullyContributingDecoration
+          let stillFullyContributing, noLongerContributingAfterAssignment = otherFullyContributingDecorations |> List.partition (fullyContributes skills newRemainingSkillNeed)
+          let newReplacementDecorations = List.concat [replacementDecorations; noLongerContributingDecorations; noLongerContributingAfterAssignment]
+          assignDecoration' newRemainingSkillNeed (newlyAssignedSlot :: assignedDecorationSlots, remainingSlots) (stillFullyContributing, newReplacementDecorations)
+
+        | _ -> reassignDecoration' remainingSkillNeed (assignedDecorationSlots, unassignedDecorationSlots) (fullContributingDecorations, replacementDecorations)
+
+
+      let largestDecorationSlot = decorationSlots |> List.map (fun (Slot s) -> s) |> List.max 
+      let allDecorationSlotSizes = [1..largestDecorationSlot] |> List.map Slot
+      let allValidDecorations, invalidDecorations = 
+        allDecorationSlotSizes 
+        |> List.choose (findValidExactDecorations skills requestedSkills decorations)
+        |> List.unzip
+        |> (fun (a,b) -> a |> List.concat, b |> List.concat)
+      assignDecoration' requestedSkills ([], decorationSlots) (allValidDecorations, [])

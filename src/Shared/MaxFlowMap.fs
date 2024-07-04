@@ -191,6 +191,12 @@ module MaxFlowMap
 
   let nAdjacenciesInPath (path:Path) (adj:Adjacency) =
     path |> List.filter (fun pAdj -> Adjacency.edge pAdj = Adjacency.edge adj) |> List.length
+ 
+  let fewerOccurrancesThanCapacities graph currentPath adjacency =
+    (nAdjacenciesInPath currentPath adjacency) < residualCapacity graph adjacency
+
+  let oppositeDirectionInPath currentPath adjacency = 
+    currentPath |> List.exists (fun pathAdjacency -> not (pathAdjacency = adjacency) && (Adjacency.edge pathAdjacency = Adjacency.edge adjacency) )
 
   let rec findPathDFS (path:Path) (graph:MaxFlowByMap) : Path option = 
     
@@ -201,7 +207,7 @@ module MaxFlowMap
 
     let findNextAdjacency (graph:MaxFlowByMap) (currentPath: Path) (node: NodeType) =
       let nextNodes = graph.Adjacency |> Map.tryFind node |> Option.defaultValue []
-      let possibleNextMoves = nextNodes |> List.filter (fun adj -> (nAdjacenciesInPath currentPath adj) < residualCapacity graph adj)
+      let possibleNextMoves = nextNodes |> List.filter (fun adj -> fewerOccurrancesThanCapacities graph currentPath adj && not (oppositeDirectionInPath currentPath adj))
       match possibleNextMoves with 
       | [] -> None
       | moves -> moves |> List.fold (depthFirstSearch currentPath) None
@@ -222,12 +228,13 @@ module MaxFlowMap
         | [] -> Source
       
       let nextNodes = graph.Adjacency |> Map.tryFind node |> Option.defaultValue []
-      let possibleNextMoves = nextNodes |> List.filter (fun adj -> (nAdjacenciesInPath path adj) < residualCapacity graph adj)
+      let possibleNextMoves = nextNodes |> List.filter (fun adj -> fewerOccurrancesThanCapacities graph path adj && not (oppositeDirectionInPath path adj))
       possibleNextMoves |> List.map (fun nm -> nm :: path)
 
     let nextPaths = paths |> List.map findNextAdjacencies |>  List.concat
+    printfn "BFS depth %i: %i paths found" (nextPaths |> List.tryHead |> Option.defaultValue [] |> List.length) (nextPaths |> List.length)
 
-    let completingNextPaths = 
+    let completingNextPaths =  
       nextPaths |> List.filter (fun path -> match path with | Forward (src, sink) :: rest when sink = Sink && graph |> assignFlowFromPath path |> withinDecorationSlotLimit -> true | _ -> false)
 
     match completingNextPaths, nextPaths with
@@ -258,9 +265,95 @@ module MaxFlowMap
     | Some path -> 
       let pathFlow = path |> findMaxPathFlow graph
       printfn "Found Path! Assigning %i flow to:\n %A" pathFlow (path |> printPath)
-      ford_fulkerson (graph |> addPathFlow path pathFlow)
+      let updatedGraph = (graph |> addPathFlow path pathFlow)
+      let totalFlow =
+        updatedGraph
+        |> decorationAssignmentEdges 
+        |> List.choose (fun edge -> graph.Flow |> Map.tryFind edge)
+        |> List.filter (fun assignedFlow -> assignedFlow > 0)
+        |> List.sum 
+      printfn "Total Flow: %i" totalFlow
+      ford_fulkerson updatedGraph 
     | None -> 
       printfn "No more paths found!"
       graph
 
-  
+
+  type BetterDecoration = 
+  | PairDecoration of (Skill * int) * (Skill * int)
+  | SingleDecoration of Skill * int
+
+  type DecorationAssignmentState = {
+    RequestedSkills : (Skill * int) list
+    Decorations : Map<Skill, (BetterDecoration * int) list>
+    DecorationSlots : (Slot * BetterDecoration option) list
+  }
+
+  type AssignmentResult = 
+  | Failed
+  | Done of (Slot * BetterDecoration) list
+  | Next of DecorationAssignmentState
+  | Replacing of DecorationAssignmentState
+
+  let decorationSkillLevel skill decoration = 
+    match decoration with 
+    | SingleDecoration (dSkill, level) ->
+      if dSkill = skill then level else 0
+    | PairDecoration ((dSkill1, level1), (dSkill2, level2)) ->
+      let skill1Level = if dSkill1 = skill then level1 else 0
+      let skill2Level = if dSkill2 = skill then level2 else 0
+      skill1Level + skill2Level
+
+  let skillFromSkillRanks skills skillRank = 
+    skills |> List.filter (fun skill -> skillRankOfSkill skill skillRank) |> List.tryExactlyOne
+
+  let assign_decoration (state:DecorationAssignmentState) : AssignmentResult =
+    let emptySlots = state.DecorationSlots |> List.filter (fun (slot, deco) -> deco.IsNone)
+    let assignedDecos = state.DecorationSlots |> List.choose (fun (slot, deco) -> deco)
+    let assignedSkills = 
+      [ for deco in assignedDecos do
+          match deco with
+          | SingleDecoration (skill, count) -> [skill, count]
+          | PairDecoration ((skill1, count1), (skill2, count2)) -> [skill1, count1; skill2, count2]
+      ] |> List.concat
+      |> List.groupBy fst
+      |> List.map (fun (key, values) -> key, values |> List.map snd |> List.sum)
+
+    let skillBalance = 
+      [ for skill, requestedAmount in state.RequestedSkills do
+          let assignedPoints = assignedSkills |> List.tryFind (fun (sk, i) -> sk = skill) |> Option.map snd |> Option.defaultValue 0
+          skill, requestedAmount - assignedPoints      
+      ]
+
+    match emptySlots with 
+    | [] -> Done (state.DecorationSlots |> List.choose (fun (slot, deco) -> deco |> Option.map (fun dec -> slot, dec)))
+    | slots ->
+      let nextSkillToAssign = skillBalance |> List.tryFind (fun (skill, balance) -> balance > 0)
+      match nextSkillToAssign with 
+      | None -> Done (state.DecorationSlots |> List.choose (fun (slot, deco) -> deco |> Option.map (fun dec -> slot, dec)))
+      | Some (skill, remainingSkillPointsNeeded) ->
+        let decorationsWithThisSkill = state.Decorations |> Map.tryFind skill |> Option.defaultValue []
+        let decorations = decorationsWithThisSkill |> List.groupBy (fun (decoration, count) -> decorationSkillLevel skill decoration)
+        
+        Done (state.DecorationSlots |> List.choose (fun (slot, deco) -> deco |> Option.map (fun dec -> slot, dec)))
+
+  let maximumPossibleSkillAssignment 
+    (requestedSkills : (Skill * int) list) 
+    (decorationSlots : (Slot * BetterDecoration option) list)
+    (decorations : Map<Skill, (BetterDecoration * int) list>) =
+      let fullyMatchedDecoration skills decoration = 
+        match decoration with
+        | SingleDecoration (sk, lv) -> skills |> List.contains sk
+        | PairDecoration ((sk1, lv1), (sk2, lv2)) -> [sk1; sk2] |> List.forall (fun decoSkill -> skills |> List.contains decoSkill) 
+      
+      let maxSkillDecorations = 
+        decorations 
+        |> Map.values
+        |> List.ofSeq
+        |> List.distinct
+        |> List.concat
+        |> List.filter (fun (deco, count) ->  deco |> fullyMatchedDecoration (requestedSkills |> List.map fst))
+
+      
+
+      ()

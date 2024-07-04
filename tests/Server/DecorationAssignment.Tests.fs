@@ -212,3 +212,188 @@ let decorationAssignment =
 
           Expect.equal results expectedResults "Skills should correctly identify the slot size of their singleton decoration if it exists"
     ]
+
+let decorationAssignmentFull = 
+    let skillNames, skills = InferredTypes.Skill.loadSkills |> Async.RunSynchronously
+    let decorations = InferredTypes.Decoration.loadDecorations skillNames |> Async.RunSynchronously
+
+    testList "DecorationAssignmentFull" [
+      testCase "Can find a correct mapping from skills to decorations, 4* Only"
+        <| fun _ ->
+
+          let expectedSkills =
+            [ "Attack Boost"
+              "Offensive Guard"
+              "Critical Eye"
+            ] |> stringMatch skills (fun skill -> skill.Name)
+
+          let requestedSkills = List.zip expectedSkills [2;2;2]
+
+          let decorations =
+           [ "Attack Jewel+ 4";
+             "Expert Jewel+ 4";
+             "Guardian/Attack Jewel 4"
+             "Guardian/Expert Jewel 4"
+           ] |> stringMatch decorations (fun deco -> deco.Name)
+          let availableDecorations =
+            List.zip decorations [1;1;1;2]
+
+          let availableDecorations =
+            [ for (decoration, count) in availableDecorations do
+                for i in 1..count -> decoration
+            ]
+
+          let slots = [Slot 4; Slot 4; Slot 4]
+
+          let assignment =
+            assignDecorations skills requestedSkills slots availableDecorations
+
+          let assignedDecorations = assignment |> Option.defaultValue [] |> List.choose (fun (slot, maybeDeco) -> maybeDeco)
+
+          let expectedAssignment =
+            [ "Attack Jewel+ 4";
+              "Guardian/Expert Jewel 4"
+              "Guardian/Expert Jewel 4"
+            ] |> stringMatch decorations (fun deco -> deco.Name)
+
+          Expect.equal (assignedDecorations |> List.sort) (expectedAssignment |> List.sort) "Should have found a successful assignment on a small request with only 4* slots"
+
+
+
+      testCase "Can find a correct mapping from skills to decorations, with smaller decorations"
+        <| fun _ ->
+
+          let expectedSkills =
+            [ "Attack Boost"
+              "Offensive Guard"
+              "Critical Eye"
+            ] |> stringMatch skills (fun skill -> skill.Name)
+
+          let requestedSkills = List.zip expectedSkills [4;3;4]
+
+          let decorations =
+           [ "Attack Jewel+ 4";
+             "Expert Jewel+ 4";
+             "Guardian/Attack Jewel 4"
+             "Guardian/Expert Jewel 4"
+             "Guardian Jewel 2"
+             "Attack Jewel 1"
+             "Expert Jewel 1"
+           ] |> stringMatch decorations (fun deco -> deco.Name)
+          let availableDecorations =
+            List.zip decorations [1;1;1;2;1;2;1]
+          let availableDecorations =
+            [ for (decoration, count) in availableDecorations do
+                for i in 1..count -> decoration
+            ]
+
+          let slots = [ Slot 4; Slot 4; Slot 4; Slot 4; Slot 2; Slot 1; Slot 1 ]
+
+          let assignment =
+            assignDecorations skills requestedSkills slots availableDecorations
+
+          let assignedDecorations = assignment |> Option.defaultValue [] |> List.choose (fun (slot, maybeDeco) -> maybeDeco)
+
+          let expectedAssignment =
+            [ "Guardian Jewel 2"
+              "Attack Jewel+ 4"
+              "Expert Jewel+ 4"
+              "Guardian/Expert Jewel 4"
+              "Guardian/Attack Jewel 4"
+              "Attack Jewel 1"
+              "Expert Jewel 1"
+            ] |> stringMatch decorations (fun deco -> deco.Name)
+
+          Expect.equal (assignedDecorations |> List.sort) (expectedAssignment |> List.sort) "Assignment should be correct"
+
+      testCase "Can identify max flow in the case where requested skills exceed what decoration slots can support"
+        <| fun _ ->
+
+          let expectedSkills =
+            [ "Attack Boost"
+              "Offensive Guard"
+              "Critical Eye"
+            ] |> stringMatch skills (fun skill -> skill.Name)
+
+          let requestedSkills = List.zip expectedSkills [4;3;4]
+
+          let decorations =
+           [ "Attack Jewel+ 4";
+             "Expert Jewel+ 4";
+             "Guardian/Attack Jewel 4"
+             "Guardian/Expert Jewel 4"
+             "Guardian Jewel 2"
+             "Attack Jewel 1"
+             "Expert Jewel 1"
+           ] |> stringMatch decorations (fun deco -> deco.Name)
+          let availableDecorations =
+            List.zip decorations [1;1;1;2;1;2;1]
+          let availableDecorations =
+            [ for (decoration, count) in availableDecorations do
+                for i in 1..count -> decoration
+            ]
+
+          let slots = [ Slot 4; Slot 4; Slot 4; Slot 1; Slot 1 ]
+
+          let assignment =
+            assignDecorations skills requestedSkills slots availableDecorations
+
+          let expectedAssignment =
+            [ "Guardian Jewel 2"
+              "Attack Jewel+ 4"
+              "Expert Jewel+ 4"
+              "Guardian/Expert Jewel 4"
+              "Guardian/Attack Jewel 4"
+              "Attack Jewel 1"
+              "Expert Jewel 1"
+            ] |> stringMatch decorations (fun deco -> deco.Name)
+
+          let assignedDecorations = assignment |> Option.defaultValue [] |> List.choose (fun (slot, maybeDeco) -> maybeDeco)
+
+          Expect.equal assignment None "(Somehow) allocated decorations when requested skills exceed decoration slot capacity"
+
+      testCase "Can slot smaller decorations in larger slots when needed"
+        <| fun _ ->
+
+          let expectedSkills =
+            [ "Attack Boost"
+              "Offensive Guard"
+              "Critical Eye"
+            ] |> stringMatch skills (fun skill -> skill.Name)
+
+          let requestedSkills = List.zip expectedSkills [3;2;3]
+
+          let decorations =
+           [ "Attack Jewel+ 4";
+             "Expert Jewel+ 4";
+             "Guardian/Attack Jewel 4"
+             "Guardian Jewel 2"
+             "Attack Jewel 1"
+             "Expert Jewel 1"
+           ] |> stringMatch decorations (fun deco -> deco.Name)
+          let availableDecorations =
+            List.zip decorations [1;1;1;1;1;1]
+          let availableDecorations =
+            [ for (decoration, count) in availableDecorations do
+                for i in 1..count -> decoration
+            ]
+
+          let slots = [ Slot 4; Slot 4; Slot 4; Slot 4; Slot 1 ]
+
+          let assignment =
+            assignDecorations skills requestedSkills slots availableDecorations
+
+          let expectedAssignment =
+            [ "Guardian Jewel 2"
+              "Attack Jewel+ 4"
+              "Expert Jewel+ 4"
+              "Guardian/Attack Jewel 4"
+              "Expert Jewel 1"
+            ] |> stringMatch decorations (fun deco -> deco.Name)
+
+          let assignedDecorations = assignment |> Option.defaultValue [] |> List.choose (fun (slot, maybeDeco) -> maybeDeco)
+
+          Expect.equal (assignedDecorations |> List.sort) (expectedAssignment |> List.sort) "Upcast failed"
+
+
+      ]

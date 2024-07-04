@@ -19,6 +19,86 @@ namespace Helpers
       let unmatchedYs = set ys - set matchedYs |> List.ofSeq
       matches, unmatchedXs, unmatchedYs
 
+    let rec foldRest (folder: 'state -> 'x list -> 'x -> 'state) state elements = 
+        match elements with
+        | [] -> state
+        | elem :: rest -> 
+          let nextState = folder state rest elem
+          foldRest folder nextState rest
+
+    let allPairsWithoutReplacement (xs: 'x list) : ('x * 'x) list = 
+      let labelledXs = xs |> List.indexed
+      let allPairs = List.allPairs labelledXs labelledXs
+      allPairs 
+      |> List.filter (fun ((idx1, d1), (idx2, d2)) -> not (idx1 = idx2))
+      |> List.map (fun ((idx1, d1), (idx2, d2)) -> (d1, d2))
+
+
+    type private StoredResult<'Element, 'Projection> =
+      | Final of ('Element * 'Element list) * 'Projection
+      | Searching of ('Element list)
+
+    let tryRemoveByAndWith (projection: 'x -> 'a option) (xs: 'x list) : (('x * 'x list) * 'a) option =
+      let folder state elem =
+        match state with
+        | Final ((matched, unusedElements), projected) -> Final ((matched, (elem :: unusedElements)), projected)
+        | Searching unusedElements ->
+          match projection elem with
+          | Some projected -> Final ((elem, unusedElements), projected)
+          | None -> Searching (elem :: unusedElements)
+
+      match xs |> List.fold folder (Searching []) with
+      | Final ((elem, unusedElements), projected) -> Some ((elem, unusedElements |> List.rev), projected)
+      | _ -> None
+
+    let tryRemoveByAndWithR (projection: 'x list -> 'x -> 'a option) (xs: 'x list) : (('x * 'x list) * 'a) option =
+      let folder state rest elem =
+        match state with
+        | Final ((matched, unusedElements), projected) -> Final ((matched, (elem :: unusedElements)), projected)
+        | Searching unusedElements ->
+          match projection rest elem with
+          | Some projected -> Final ((elem, unusedElements), projected)
+          | None -> Searching (elem :: unusedElements)
+
+      match xs |> foldRest folder (Searching []) with
+      | Final ((elem, unusedElements), projected) -> Some ((elem, unusedElements |> List.rev), projected)
+      | _ -> None
+
+    type MatchedElementState<'Element, 'Projection> = 
+      {
+        MatchedElement: 'Element
+        Projection: 'Projection
+        NonMatchingElements: 'Element list
+        UncheckedElements: 'Element list
+      }
+    
+    type UnmatchedElementState<'Element> = 
+      {
+        NonMatchingElements: 'Element list
+        UncheckedElements: 'Element list
+      }
+
+    type ElementSearchState<'Element, 'Projection> = 
+      | Match of MatchedElementState<'Element, 'Projection>
+      | Searching of UnmatchedElementState<'Element>
+
+    let tryRemoveByAndWithPartial (projection: 'x -> 'a option) (elements: ElementSearchState<'x, 'a>) : ElementSearchState<'x, 'a> =
+      let folder state elem =
+        match state with
+        | Match m -> Match { m with UncheckedElements = elem :: m.UncheckedElements }
+        | Searching u ->
+          match projection elem with
+          | Some projected -> Match { MatchedElement = elem; Projection = projected; NonMatchingElements = u.NonMatchingElements; UncheckedElements = u.UncheckedElements }
+          | None -> Searching { u with NonMatchingElements = elem :: u.NonMatchingElements }
+
+      let elementsToCheck = 
+        match elements with
+        | Match m -> m.UncheckedElements
+        | Searching s -> s.UncheckedElements
+
+      elementsToCheck |> List.fold folder ( Searching { NonMatchingElements = []; UncheckedElements = [] } )
+
+
   module Option = 
     let (>>=) o f = Option.bind f o 
     
