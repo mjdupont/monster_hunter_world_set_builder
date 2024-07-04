@@ -304,7 +304,7 @@ let decorationAssignmentFull =
               "Expert Jewel 1"
             ] |> stringMatch decorations (fun deco -> deco.Name)
 
-          Expect.equal (assignedDecorations |> List.sort) (expectedAssignment |> List.sort) "Assignment should be correct"
+          Expect.equal (assignedDecorations |> List.sort) (expectedAssignment |> List.sort) "Should be able to assign when given smaller decorations along with 4*"
 
       testCase "Can identify max flow in the case where requested skills exceed what decoration slots can support"
         <| fun _ ->
@@ -394,6 +394,5 @@ let decorationAssignmentFull =
           let assignedDecorations = assignment |> Option.defaultValue [] |> List.choose (fun (slot, maybeDeco) -> maybeDeco)
 
           Expect.equal (assignedDecorations |> List.sort) (expectedAssignment |> List.sort) "Upcast failed"
-
 
       ]
