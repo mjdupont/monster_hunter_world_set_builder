@@ -61,6 +61,7 @@ type SkillRank =
   ; Modifiers: SkillRankModifier []
   }
 
+[<StructuredFormatDisplay("{Name}")>]
 type Decoration = 
   { Id: int
   ; Name: string 
@@ -152,6 +153,7 @@ type ArmorSet =
   ; Bonus: ArmorSetBonus option
   }
 
+[<StructuredFormatDisplay("{Name}")>]
 type Skill =
   { Id: int
   ; Slug: string
