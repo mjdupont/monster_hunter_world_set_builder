@@ -250,7 +250,7 @@ let view (model: Model) dispatch =
         let armorSetBonuses =
             model.ChosenSet |> ChosenSet.armorSetBonuses gameData.ArmorSets
 
-        let totalSkills = (model.ChosenSet |> ChosenSet.totalSkills |> accumulateSkills)
+        let totalSkills = (model.ChosenSet |> ChosenSet.allSkillRanks |> accumulateSkills)
 
         let totalSkillsElement = [
             for skill in totalSkills do

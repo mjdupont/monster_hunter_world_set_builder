@@ -2,250 +2,132 @@ module SetSearchLogic
 
 open DataTypes
 open Helpers
+open ModelData
+open DecorationAssignment
 
-let skillPointsFromSlot =
-    (function
-    | Slot 4 -> 2
-    | _ -> 1)
 
-// type SetSearchPiece =
-//   { Piece: (Armor * DecorationSlots) option
-//     PieceChoices: Armor list
-//     PlaceHolderPieces: Armor list
-//   }
+let requestedSkillsDifference (requestedSkill:(Skill * int) list) (achievedSkill:(Skill * int) list) =
+  [for skill, count in requestedSkill do
+    let achievedCount = 
+      achievedSkill |> List.filter (fun (aSkill, aCount) -> aSkill = skill)
+      |> List.tryExactlyOne
+      |> Option.map snd
+      |> Option.defaultValue 0
+    let remainingNeed = count - achievedCount
+    if remainingNeed > 0 
+    then yield skill, remainingNeed
+    else ()
+  ]
 
-// type SetSearchData =
-//   { Weapon: Weapon * DecorationSlots
-//     Headgear: SetSearchPiece
-//     Chest: SetSearchPiece
-//     Gloves: SetSearchPiece
-//     Waist: SetSearchPiece
-//     Legs: SetSearchPiece
-//     Charm: (Charm * CharmRank) option * Charm list
-//   }
-//   member this.AllChosen =
-//     [ this.Headgear.Piece.IsSome
-//       this.Chest.Piece.IsSome
-//       this.Gloves.Piece.IsSome
-//       this.Waist.Piece.IsSome
-//       this.Legs.Piece.IsSome
-//       (this.Charm |> fst).IsSome
-//     ] |> List.forall id
+let charmSkillContribution skills remainingSkillNeed (charm:Charm) = 
+  charm.Ranks |> Array.maxBy (fun (cr:CharmRank) -> cr.Level) |> skillContribution skills remainingSkillNeed
 
-//   member this.SkillContribution =
-//     [ this.Headgear.Piece |> Option.map (fst >> (fun armor -> armor.Skills))
-//       this.Chest.Piece |> Option.map (fst >> (fun armor -> armor.Skills))
-//       this.Gloves.Piece |> Option.map (fst >> (fun armor -> armor.Skills))
-//       this.Waist.Piece |> Option.map (fst >> (fun armor -> armor.Skills))
-//       this.Legs.Piece |> Option.map (fst >> (fun armor -> armor.Skills))
-//       this.Charm |> fst |> Option.map (snd >> (fun cr -> cr.Skills))
-//     ]
-//     |> List.choose (Option.map List.ofArray)
-//     |> List.concat
+let armorSkillContribution skills decorations remainingSkillNeed (armor:Armor) =
+  let armorContribution = armor |> skillContribution skills remainingSkillNeed
+  let decoContribution = armor.Slots |> asCounts |> calculateReach skills decorations remainingSkillNeed
+  armorContribution + decoContribution
 
-//   member this.DecorationSlots =
-//     [ Some (this.Weapon |> fst).Slots
-//       this.Headgear.Piece |> Option.map (fst >> (fun armor -> armor.Slots))
-//       this.Chest.Piece |> Option.map (fst >> (fun armor -> armor.Slots))
-//       this.Gloves.Piece |> Option.map (fst >> (fun armor -> armor.Slots))
-//       this.Waist.Piece |> Option.map (fst >> (fun armor -> armor.Slots))
-//       this.Legs.Piece |> Option.map (fst >> (fun armor -> armor.Slots))
-//     ]
-//     |> List.choose (Option.map List.ofArray)
-//     |> List.concat
+let assignArmor skills (chosenSet:ChosenSet) (armor: Armor list) (charms : Charm list) (decorations: (Decoration * int) list) (requestedSkills:(Skill * int) list) =
+  let achievedSkills = ChosenSet.skillCount skills chosenSet
+  let remainingSkillNeed = requestedSkillsDifference requestedSkills achievedSkills
+  
+  let unassignedPieces = ChosenSet.getUnassignedPieces chosenSet
+  let validArmor = armor |> List.filter (fun a -> unassignedPieces |> List.contains a.Type)
+  let validArmorScored = validArmor |> List.map (fun a -> a, a |> armorSkillContribution skills decorations remainingSkillNeed) |> List.sortByDescending snd
 
-//   member this.Filter armorFilter charmFilter =
-//     { this with
-//         Headgear = if this.Headgear.Piece.IsNone then { this.Headgear with PieceChoices = this.Headgear.PieceChoices |> armorFilter }  else this.Headgear
-//         Chest = if this.Chest.Piece.IsNone then { this.Chest with PieceChoices = this.Chest.PieceChoices |> armorFilter} else this.Chest
-//         Gloves = if this.Gloves.Piece.IsNone then { this.Gloves with PieceChoices = this.Gloves.PieceChoices |> armorFilter} else this.Gloves
-//         Waist = if this.Waist.Piece.IsNone then { this.Waist with PieceChoices = this.Waist.PieceChoices |> armorFilter} else this.Waist
-//         Legs = if this.Legs.Piece.IsNone then { this.Legs with PieceChoices = this.Legs.PieceChoices |> armorFilter} else this.Legs
-//         Charm = if (this.Charm |> fst).IsNone then this.Charm |> (fun (charm, list) -> charm, list |> charmFilter) else this.Charm
-//     }
+  let validCharmsScored = charms |> List.map (fun c -> c, c |> charmSkillContribution skills remainingSkillNeed) |> List.sortByDescending snd
+  
+  match validArmorScored, validCharmsScored with
+  | (bestArmor, armorContrib) :: restArmor, [] ->
+    Some (ChosenSet.setArmor bestArmor.Type (Some (bestArmor, bestArmor.Slots |> DecorationSlots.FromSlots)) chosenSet)
+  | (bestArmor, armorContrib) :: restArmor, (bestCharm, charmContrib) :: restCharm when armorContrib > charmContrib ->
+    Some (ChosenSet.setArmor bestArmor.Type (Some (bestArmor, bestArmor.Slots |> DecorationSlots.FromSlots)) chosenSet)
 
-let anonymizeArmor armor = {
-    armor with
-        ArmorSet = -1
-        Id = -1
-        Skills = [||]
-        Name = "Any Piece With These Slots"
-        Slug = "Placeholder"
-}
+  | [], (bestCharm, charmContrib) :: restCharm ->
+    Some ({ chosenSet with Charm = Some (bestCharm, bestCharm.Ranks |> Array.maxBy (fun (cr:CharmRank) -> cr.Level))})
+  | (bestArmor, armorContrib) :: restArmor, (bestCharm, charmContrib) :: restCharm when charmContrib > armorContrib -> 
+    Some ({ chosenSet with Charm = Some (bestCharm, bestCharm.Ranks |> Array.maxBy (fun (cr:CharmRank) -> cr.Level))})
+  | _, _ -> None
 
-// Calculates how much a piece of armor can contribute to the set.
-let armorSkillContribution (selectedSkillIds: int list) (armor: Armor) : int =
-    let matchingArmorSkills =
-        armor.Skills
-        |> Array.filter (fun armorSkillRank -> selectedSkillIds |> List.contains armorSkillRank.Id)
+let allocateToDecorationSlot assignedDecorations (decorationSlot:DecorationSlot) =
+  match decorationSlot with
+  | Some (Slot s, Some decoration) -> Some (assignedDecorations, Some (Slot s, Some decoration))
+  | None -> Some (assignedDecorations, None)
+  | Some (Slot s, None) -> 
+    match assignedDecorations |> List.partition (fun (Slot aSlot, _decoration) -> aSlot = s) with
+    | (_slot, decoration) :: rest, notMatching -> Some (rest @ notMatching, Some (Slot s, Some decoration))
+    | [], _ -> None
 
-    matchingArmorSkills
-    |> Array.map (fun armorSkillRank -> armorSkillRank.Level)
-    |> Array.sum
+let allocateToDecorationSlots assignedDecorations (decorationSlots:DecorationSlots) = 
+  option {
+    let! remainingDecos, firstSlot = allocateToDecorationSlot assignedDecorations decorationSlots.First
+    let! remainingDecos, secondSlot = allocateToDecorationSlot remainingDecos decorationSlots.Second
+    let! remainingDecos, thirdSlot = allocateToDecorationSlot remainingDecos decorationSlots.Third
+    return remainingDecos, {decorationSlots with First = firstSlot; Second = secondSlot; Third = thirdSlot}
+  }
 
-let anyPiece (armorType: ArmorType) : Armor = {
-    ArmorSet = -1
-    Defense = { Base = 0; Augmented = 0; Max = 0 }
-    Id = -1
-    Name = "Any Piece"
-    Rank = Low
-    Rarity = -1
-    Resistances = {
-        Fire = 0
-        Ice = 0
-        Water = 0
-        Dragon = 0
-        Thunder = 0
+let allocateToWeapon (assignedDecorations, chosenSet)  =
+  option {
+    let! weapon, decorationSlots = chosenSet.Weapon
+    let! remainingDecos, weaponDecorationSlots = 
+      decorationSlots
+      |> allocateToDecorationSlots assignedDecorations
+    return remainingDecos, { chosenSet with Weapon = Some (weapon, weaponDecorationSlots) }
+  }
+
+let allocateToArmor (assignedDecorations, chosenSet) armorType =
+  option {
+    let! armor, decorationSlots = ChosenSet.getPiece (armorType, chosenSet)
+    let! remainingDecos, assignedDecorationSlots = 
+      decorationSlots
+      |> allocateToDecorationSlots assignedDecorations
+    return remainingDecos, ChosenSet.setArmor armorType (Some (armor, assignedDecorationSlots)) chosenSet
     }
-    Skills = [||]
-    Slug = "Any Piece"
-    Slots = [||]
-    Type = armorType
-}
 
-let anyCharm =
-    {
-        Id = -1
-        Name = "Any Charm"
-        Ranks = [||]
-        Slug = "Any Charm"
-    },
-    { Level = 0; Rarity = 0; Skills = [||] }
+let allocateDecorations chosenSet assignedDecorations : ChosenSet option =
+  option {
+    let! decorations, chosenSet = allocateToWeapon (assignedDecorations, chosenSet)
+    let! decorations, chosenSet = 
+      ArmorType.allTypes |> List.fold (fun state next -> state |> Option.bind (fun s -> allocateToArmor s next)) (Some (decorations, chosenSet))
+    match decorations with
+    | [] -> return chosenSet
+    | _ -> return! None
+  }
 
+let rec findSet skills (chosenSet:ChosenSet) (armor: Armor list) (charms : Charm list) (decorations: (Decoration * int) list) (weapon: Weapon) (requestedSkills:(Skill * int) list) = 
+  let achievedSkills = ChosenSet.skillCount skills chosenSet
+  let remainingSkillNeed = requestedSkillsDifference requestedSkills achievedSkills
+  let _assignedArmorSlots, unassignedArmorSlots = 
+    chosenSet 
+    |> ChosenSet.getAssignedPieces 
+    |> List.map snd 
+    |> List.map DecorationSlots.asSlots
+    |> List.concat
+    |> List.partition (snd >> Option.isSome)
+  let _assignedWeaponSlots, unassignedWeaponSlots = 
+    weapon.Slots 
+    |> DecorationSlots.FromSlots
+    |> DecorationSlots.asSlots
+    |> List.partition (snd >> Option.isSome)
 
-// let skillDecoStats (skills : Skill list) (decorations : Decoration list) =
+  let unassignedSlots = unassignedArmorSlots @ unassignedWeaponSlots
 
-//   let hasPlus skill =
-//     decorations
-//       |> List.filter (fun deco ->
-//         (deco |> decoContainsSkill skill)
-//         && (deco |> (not << decoContainsOtherSkill skill))
-//       )
-//       |> List.exists (fun deco -> deco.Skills |> Array.exists (fun sr -> sr.Id = skill.Id && sr.Level = 2))
+  match assignDecorations skills remainingSkillNeed (unassignedSlots |> List.map fst |> asCounts) decorations with
+  | Some assignment -> 
+    let assignedDecorations = 
+      assignment 
+      |> List.choose (fun (s, mDeco) -> mDeco |> Option.map (fun mDec -> s, mDec))
+      |> List.sortByDescending fst
 
-//   let hasHard skill =
-//     decorations
-//       |> List.filter (fun deco ->
-//         (deco |> decoContainsSkill skill)
-//         && (deco |> (not << decoContainsOtherSkill skill))
-//       )
-//       |> List.exists (fun deco -> deco.Skills |> Array.exists (fun sr -> sr.Id = skill.Id && sr.Level = 2))
-
-//   let inSize4Deco skill =
-//     decorations
-//       |> List.filter (fun deco -> deco.Slot = 4)
-//       |> List.filter (decoContainsSkill skill)
-//       |> (not << List.isEmpty)
-
-
-//   skills |> List.map (fun skill -> skill, (skill |> decorationSlotSize decorations, skill |> hasPlus, skill |> hasHard, skill |> inSize4Deco))
-
-
-
-// let assignDecorations (skillDecoStats: (Skill * (Slot option * bool * bool * bool)) list) (wantedSkills:(Skill*int) list) (decorations:(Decoration*int) list) (slotsToFill:Slot list) : Decoration list =
-//   let joinedSkills, _, _ = wantedSkills |> List.join (fun ((skillD:Skill), _) (skillL, _) -> skillD.Id = skillL.Id) skillDecoStats
-//   let joinedSkills = joinedSkills |> List.map (fun ((skill, skillD),(skill, needed)) -> skill, skillD, needed )
-//   let slotSpaceNeeded =
-//     joinedSkills
-//     |> List.groupBy (fun (skill, skill_data, needed) -> skill_data |> (fun (single_skill_Slot_size, _, _, _) -> single_skill_Slot_size))
-//     |> List.map (fun (slot, skills) -> slot, skills |> List.map (fun (skill, skillD, needed) -> needed) |> List.sum)
-//     |> List.choose (fun (slot, neededSkills) -> slot |> Option.map (fun slot -> slot, neededSkills))
-
-//   let slotSpaceAvailable =
-//     slotsToFill |> List.countBy id
-
-//   let unMetSingleSkillNeeds, _, _ = List.join (fun a b -> fst a = fst b) slotSpaceNeeded slotSpaceAvailable
-//   let unMetSingleSkillNeeds = unMetSingleSkillNeeds |> List.map (fun ((slot, needed),(_, available)) -> slot, (needed - available) )
-
-//   []
-
-// let findSets
-//   (armor:Armor list)
-//   (decorations:Decoration list)
-//   (charms: Charm list)
-//   (weapon:Weapon * DecorationSlots)
-//   (skills:(Skill*int) list)
-//   : ChosenSet list =
-
-//   let selectedSkillIds =
-//     skills |> List.map (fun (skill, rank) -> skill.Id)
-
-//   let skillRanksNeeded =
-//     skills |> List.choose (fun (skill, rank) -> skill.Ranks |> Array.filter (fun sr -> sr.Level = rank) |> Array.tryExactlyOne)
-
-//   // Note being here; we don't want to consider decorations with an unwanted skill
-//   // We know that for all two-skill decorations, there exists a single skill decoration of a smaller size.
-//   // As such, double skill decorations with only one relevant skill could simply be replaced with the smaller decoration.
-//   let relevantDecorations =
-//     decorations
-//     |> List.filter (fun decoration -> decoration.Skills |> Array.forall (fun sr -> selectedSkillIds |> List.contains sr.Id ))
-
-//   let startingSetSearchData =
-//     { Weapon = weapon
-//       Headgear = { Piece = None; PieceChoices = armor |> List.filter (fun piece -> piece.Type = Headgear); PlaceHolderPieces = []}
-//       Chest    = { Piece = None; PieceChoices = armor |> List.filter (fun piece -> piece.Type = Chest); PlaceHolderPieces = []}
-//       Gloves   = { Piece = None; PieceChoices = armor |> List.filter (fun piece -> piece.Type = Gloves); PlaceHolderPieces = []}
-//       Waist    = { Piece = None; PieceChoices = armor |> List.filter (fun piece -> piece.Type = Waist); PlaceHolderPieces = []}
-//       Legs     = { Piece = None; PieceChoices = armor |> List.filter (fun piece -> piece.Type = Legs); PlaceHolderPieces = []}
-//       Charm = None, charms
-//     }
-
-//   let rec buildSet' (setSearchData:SetSearchData) : SetSearchData =
-//     let skillsAchieved = setSearchData.SkillContribution |> Array.ofList |> accumulateSkills
-//     let skillsYetNeeded = set skillRanksNeeded - set skillsAchieved |> List.ofSeq
-//     let skillPointsYetNeeded = skillsYetNeeded |> List.map (fun sr -> sr.Level) |> List.sum
-//     let decorationSkillPointsPossible =
-//       setSearchData.DecorationSlots |> List.map skillPointsFromSlot |> List.sum
-
-//     match setSearchData with
-//     | setSearchData when setSearchData.AllChosen -> setSearchData
-//     | setSearchData when skillPointsYetNeeded <= decorationSkillPointsPossible ->
-//         { setSearchData with
-//             Headgear = if setSearchData.Headgear.Piece.IsNone then { setSearchData.Headgear with Piece = Some <| (anyPiece Headgear, DecorationSlots.FromSlots [||]) } else setSearchData.Headgear
-//             Chest = if setSearchData.Chest.Piece.IsNone then { setSearchData.Chest with Piece = Some <| (anyPiece Chest, DecorationSlots.FromSlots [||]) } else setSearchData.Chest
-//             Gloves = if setSearchData.Gloves.Piece.IsNone then { setSearchData.Gloves with Piece = Some <| (anyPiece Gloves, DecorationSlots.FromSlots [||]) } else setSearchData.Gloves
-//             Waist = if setSearchData.Waist.Piece.IsNone then { setSearchData.Waist with Piece = Some <| (anyPiece Waist, DecorationSlots.FromSlots [||]) } else setSearchData.Waist
-//             Legs = if setSearchData.Legs.Piece.IsNone then { setSearchData.Legs with Piece = Some <| (anyPiece Legs, DecorationSlots.FromSlots [||]) } else setSearchData.Legs
-//             Charm = if (setSearchData.Charm |> fst).IsNone then (Some anyCharm, setSearchData.Charm |> snd) else setSearchData.Charm
-//         }
-//     | _ ->
-
-//       let test =
-//         if decorationSkillPointsPossible >= skillPointsYetNeeded
-//           then
-//             { setSearchData with
-//                 Headgear = if setSearchData.Headgear.Piece.IsNone then { setSearchData.Headgear with Piece = Some <| (anyPiece Headgear, DecorationSlots.FromSlots [||]) } else setSearchData.Headgear
-//                 Chest = if setSearchData.Chest.Piece.IsNone then { setSearchData.Chest with Piece = Some <| (anyPiece Chest, DecorationSlots.FromSlots [||]) } else setSearchData.Chest
-//                 Gloves = if setSearchData.Gloves.Piece.IsNone then { setSearchData.Gloves with Piece = Some <| (anyPiece Gloves, DecorationSlots.FromSlots [||]) } else setSearchData.Gloves
-//                 Waist = if setSearchData.Waist.Piece.IsNone then { setSearchData.Waist with Piece = Some <| (anyPiece Waist, DecorationSlots.FromSlots [||]) } else setSearchData.Waist
-//                 Legs = if setSearchData.Legs.Piece.IsNone then { setSearchData.Legs with Piece = Some <| (anyPiece Legs, DecorationSlots.FromSlots [||]) } else setSearchData.Legs
-//                 Charm = if (setSearchData.Charm |> fst).IsNone then (Some anyCharm, setSearchData.Charm |> snd) else setSearchData.Charm
-//             }
-//           else setSearchData
-
-//       let armorFilter (armor:Armor list) : Armor list =
-//         let armorWithSkills, armorWithout =
-//           armor |> List.partition (fun piece -> (piece |> armorSkillContribution selectedSkillIds) > 0)
-//         let distinctBySlots = armorWithout |> List.distinctBy (fun armor -> armor.Slots) |> List.map anonymizeArmor
-//         [armorWithSkills; distinctBySlots] |> List.concat
-
-//       let charmFilter charms =
-//         charms
-//         |> List.filter (fun (charm:Charm) ->
-//           charm.Ranks
-//           |> Array.exists (fun cr ->
-//             cr.Skills
-//             |> Array.exists (fun sr ->
-//               skillsYetNeeded
-//               |> List.map (fun neededSR -> neededSR.Id )
-//               |> List.contains sr.Id
-//             )
-//           )
-//         )
-
-//       let updatedSetSearchData = setSearchData.Filter armorFilter charmFilter
-
-//       // Calculate contribution from remaining pieces
-//       // Omit pieces with no contribution, replace with "Any piece with N decoration slots"
-//       setSearchData
-//   []
+    match allocateDecorations chosenSet assignedDecorations with
+    | Some chosenSet -> Some chosenSet
+    | None -> 
+      match assignArmor skills chosenSet armor charms decorations requestedSkills with
+      | Some newChosenSet -> findSet skills newChosenSet armor charms decorations weapon requestedSkills
+      | None -> None
+    
+  | None -> 
+    match assignArmor skills chosenSet armor charms decorations requestedSkills with
+    | Some newChosenSet -> findSet skills newChosenSet armor charms decorations weapon requestedSkills
+    | None -> None
+  

@@ -32,25 +32,25 @@ type SkillRankModifier =
     | Health of int
     | SharpnessBonus of int
 
-// let skillRankModifierMatcher (modName: string, value: FSharp.Data.JsonValue) =
-//     match (modName.ToLower()), value with
-//     | "affinity", FSharp.Data.JsonValue.Number x -> x |> (float) |> Affinity |> Some
-//     | "attack", FSharp.Data.JsonValue.Number x -> x |> (int) |> Attack |> Some
-//     | "defense", FSharp.Data.JsonValue.Number x -> x |> (int) |> Defense |> Some
-//     | "health", FSharp.Data.JsonValue.Number x -> x |> (int) |> Health |> Some
-//     | "sharpnessbonus", FSharp.Data.JsonValue.Number x -> x |> (int) |> SharpnessBonus |> Some
-//     | "damagefire", FSharp.Data.JsonValue.Number x -> (Fire, (int) x) |> ElementalDamage |> Some
-//     | "damagewater", FSharp.Data.JsonValue.Number x -> (Water, (int) x) |> ElementalDamage |> Some
-//     | "damageice", FSharp.Data.JsonValue.Number x -> (Ice, (int) x) |> ElementalDamage |> Some
-//     | "damagethunder", FSharp.Data.JsonValue.Number x -> (Thunder, (int) x) |> ElementalDamage |> Some
-//     | "damagedragon", FSharp.Data.JsonValue.Number x -> (Dragon, (int) x) |> ElementalDamage |> Some
-//     | "resistall", FSharp.Data.JsonValue.Number x -> (All, (int) x) |> ElementalResist |> Some
-//     | "resistfire", FSharp.Data.JsonValue.Number x -> (Element Fire, (int) x) |> ElementalResist |> Some
-//     | "resistwater", FSharp.Data.JsonValue.Number x -> (Element Water, (int) x) |> ElementalResist |> Some
-//     | "resistice", FSharp.Data.JsonValue.Number x -> (Element Ice, (int) x) |> ElementalResist |> Some
-//     | "resistthunder", FSharp.Data.JsonValue.Number x -> (Element Thunder, (int) x) |> ElementalResist |> Some
-//     | "resistdragon", FSharp.Data.JsonValue.Number x -> (Element Dragon, (int) x) |> ElementalResist |> Some
-//     | _ -> None
+let skillRankModifierMatcher (modName: string, value: FSharp.Data.JsonValue) =
+    match (modName.ToLower()), value with
+    | "affinity", FSharp.Data.JsonValue.Number x -> x |> (float) |> Affinity |> Some
+    | "attack", FSharp.Data.JsonValue.Number x -> x |> (int) |> Attack |> Some
+    | "defense", FSharp.Data.JsonValue.Number x -> x |> (int) |> Defense |> Some
+    | "health", FSharp.Data.JsonValue.Number x -> x |> (int) |> Health |> Some
+    | "sharpnessbonus", FSharp.Data.JsonValue.Number x -> x |> (int) |> SharpnessBonus |> Some
+    | "damagefire", FSharp.Data.JsonValue.Number x -> (Fire, (int) x) |> ElementalDamage |> Some
+    | "damagewater", FSharp.Data.JsonValue.Number x -> (Water, (int) x) |> ElementalDamage |> Some
+    | "damageice", FSharp.Data.JsonValue.Number x -> (Ice, (int) x) |> ElementalDamage |> Some
+    | "damagethunder", FSharp.Data.JsonValue.Number x -> (Thunder, (int) x) |> ElementalDamage |> Some
+    | "damagedragon", FSharp.Data.JsonValue.Number x -> (Dragon, (int) x) |> ElementalDamage |> Some
+    | "resistall", FSharp.Data.JsonValue.Number x -> (All, (int) x) |> ElementalResist |> Some
+    | "resistfire", FSharp.Data.JsonValue.Number x -> (Element Fire, (int) x) |> ElementalResist |> Some
+    | "resistwater", FSharp.Data.JsonValue.Number x -> (Element Water, (int) x) |> ElementalResist |> Some
+    | "resistice", FSharp.Data.JsonValue.Number x -> (Element Ice, (int) x) |> ElementalResist |> Some
+    | "resistthunder", FSharp.Data.JsonValue.Number x -> (Element Thunder, (int) x) |> ElementalResist |> Some
+    | "resistdragon", FSharp.Data.JsonValue.Number x -> (Element Dragon, (int) x) |> ElementalResist |> Some
+    | _ -> None
 
 
 type SkillRank = {
@@ -78,6 +78,8 @@ type ArmorType =
     | Gloves
     | Waist
     | Legs
+    
+    with static member allTypes = [ Headgear; Chest; Gloves; Waist; Legs ]
 
 let (|ArmorType|_|) (armorStr: string) =
     match (armorStr.ToLower()) with
@@ -165,15 +167,7 @@ type Weapon = {
     Attack: int
     Slots: Slot[]
 // Rest to Follow
-} with
-
-    static member Placeholder slots = {
-        Id = 9999
-        Name = "Placeholder Weapon"
-        Rarity = 0
-        Attack = 0
-        Slots = slots
-    }
+}
 
 ///
 /// Compares a SkillRank to a Skill to determine if the SkillRank is of the skill.
