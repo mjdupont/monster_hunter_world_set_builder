@@ -87,8 +87,7 @@ type Msg =
     | SetInput of string
 
 
-let mhwApi =
-    Api.makeProxy<IMHWApi> ()
+let mhwApi = Api.makeProxy<IMHWApi> ()
 
 let init () : (Model * Cmd<Msg>) =
     let customWeapon =
@@ -327,7 +326,14 @@ let view (model: Model) dispatch =
                     Legs = if newPiece = model.ChosenSet.Legs then None else newPiece
               }
 
-        let armorProps armorType : ({| Decorations : Decoration seq; Armor: Armor seq; ChosenArmor: HelperFunctions.PropDrill<(Armor * DecorationSlots) option> |}) =
+        let armorProps
+            armorType
+            : ({|
+                  Decorations: Decoration seq
+                  Armor: Armor seq
+                  ChosenArmor: HelperFunctions.PropDrill<(Armor * DecorationSlots) option>
+              |})
+            =
             let filteredArmor = gameData.Armor |> Seq.filter (fun a -> a.Type = armorType)
             let updateArmor = (updateArmorPiece armorType >> UpdateChosenSet >> dispatch)
 

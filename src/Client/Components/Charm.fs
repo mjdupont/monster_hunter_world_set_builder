@@ -8,10 +8,13 @@ module Charm =
     open HelperFunctions
 
     [<ReactComponent>]
-    let Component (props: 
-      {|Charms: Charm list
-        ChosenCharm: PropDrill<(Charm * CharmRank) option>
-      |}) =
+    let Component
+        (props:
+            {|
+                Charms: Charm list
+                ChosenCharm: PropDrill<(Charm * CharmRank) option>
+            |})
+        =
 
         let addDefaultRank (charm: Charm option) : (Charm * CharmRank) option =
             charm

@@ -8,10 +8,13 @@ module SetSearcher =
 
 
     [<ReactComponent>]
-    let Component (props:  {|
-        Skills: Skill seq
-        SubmitSkills: (Skill * int) list -> unit
-    |}) =
+    let Component
+        (props:
+            {|
+                Skills: Skill seq
+                SubmitSkills: (Skill * int) list -> unit
+            |})
+        =
 
         let (selectedSkills: (Skill * int) list), updateSelectedSkills = React.useState []
 

@@ -9,10 +9,13 @@ module DecorationSlots =
 
 
     [<ReactComponent>]
-    let Component (props: {|
-        Decorations: Decoration seq
-        ChosenDecoSlots: PropDrill<DecorationSlots>
-    |}) =
+    let Component
+        (props:
+            {|
+                Decorations: Decoration seq
+                ChosenDecoSlots: PropDrill<DecorationSlots>
+            |})
+        =
 
         let updateDecoration (newDecoration: Decoration option) (decorationSlot: DecorationSlot) : DecorationSlot =
             decorationSlot

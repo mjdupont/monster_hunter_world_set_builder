@@ -7,10 +7,13 @@ module SkillSelector =
     open DataTypes
 
     [<ReactComponent>]
-    let Component (props: {|
-        Skills: Skill seq
-        AddSkill: (Skill * int) option -> unit
-    |}) =
+    let Component
+        (props:
+            {|
+                Skills: Skill seq
+                AddSkill: (Skill * int) option -> unit
+            |})
+        =
         let placeholder = "Select a Skill"
 
         let (skillAndRank: (Skill * int) option), updateSkill = React.useState (None)

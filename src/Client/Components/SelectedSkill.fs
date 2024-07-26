@@ -8,11 +8,14 @@ module SelectedSkill =
 
 
     [<ReactComponent>]
-    let Component (props: {|
-        Skill: Skill
-        Rank: int
-        RemoveSkillCallBack: Skill -> unit
-    |}) =
+    let Component
+        (props:
+            {|
+                Skill: Skill
+                Rank: int
+                RemoveSkillCallBack: Skill -> unit
+            |})
+        =
         printfn "%A" (props.Skill, props.Rank)
 
         Html.div [

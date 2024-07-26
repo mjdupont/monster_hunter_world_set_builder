@@ -11,11 +11,14 @@ module Armor =
 
 
     [<ReactComponent>]
-    let Component (props: 
-      {|Decorations: Decoration seq 
-        Armor: Armor seq
-        ChosenArmor: PropDrill<(Armor * DecorationSlots) option> 
-      |}) =
+    let Component
+        (props:
+            {|
+                Decorations: Decoration seq
+                Armor: Armor seq
+                ChosenArmor: PropDrill<(Armor * DecorationSlots) option>
+            |})
+        =
 
         let findPieceFromId (id: string) : Armor option =
             let matchingPieces = props.Armor |> Seq.filter (fun p -> p.Id |> sprintf "%i" = id)

@@ -11,11 +11,14 @@ module Weapon =
 
 
     [<ReactComponent>]
-    let Component (props: {|
-        Decorations: Decoration seq
-        Weapons: Weapon seq
-        ChosenWeapon: PropDrill<(Weapon * DecorationSlots) option>
-    |}) =
+    let Component
+        (props:
+            {|
+                Decorations: Decoration seq
+                Weapons: Weapon seq
+                ChosenWeapon: PropDrill<(Weapon * DecorationSlots) option>
+            |})
+        =
 
         let findWeaponFromId (id: string) =
             let matchingPieces =

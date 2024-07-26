@@ -10,10 +10,13 @@ module DecorationSizeSelector =
 
 
     [<ReactComponent>]
-    let Component (props: {|
-        Position: int
-        ChosenDecoSlot: PropDrill<DecorationSlot>
-    |}) =
+    let Component
+        (props:
+            {|
+                Position: int
+                ChosenDecoSlot: PropDrill<DecorationSlot>
+            |})
+        =
         let noDecorationElement () =
             Html.label [
                 prop.children [

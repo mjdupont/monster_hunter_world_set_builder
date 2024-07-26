@@ -8,10 +8,13 @@ module WeaponBuilder =
     open HelperFunctions
 
     [<ReactComponent>]
-    let Component (props: {|
-        Decorations: Decoration seq
-        ChosenWeapon: PropDrill<(Weapon * DecorationSlots) option>
-    |}) =
+    let Component
+        (props:
+            {|
+                Decorations: Decoration seq
+                ChosenWeapon: PropDrill<(Weapon * DecorationSlots) option>
+            |})
+        =
         let updateDecorationSlots decorationSlots =
             props.ChosenWeapon.Update(
                 props.ChosenWeapon.Value

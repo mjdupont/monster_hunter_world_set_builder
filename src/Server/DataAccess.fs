@@ -25,7 +25,7 @@ module InferredTypes =
                 sr.Modifiers.JsonValue
                 |> function
                     | JsonValue.Record mods when mods |> Array.length > 0 ->
-                        mods |> Array.choose (fun (str, v) -> Some (Affinity 5))//TODO skillRankModifierMatcher
+                        mods |> Array.choose (fun (str, v) -> Some(Affinity 5)) //TODO skillRankModifierMatcher
                     | _ -> [||]
             Skill = sr.Skill
             SkillName = skillNames |> Map.tryFind sr.Skill |> Option.defaultValue "" //TODO - handle this better

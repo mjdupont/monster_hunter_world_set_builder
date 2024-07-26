@@ -8,12 +8,14 @@ module Decoration =
     open HelperFunctions
 
     [<ReactComponent>]
-    let Component (props: 
-      {|
-          Decorations: Decoration seq
-          Slot: Slot
-          ChosenDecoration: PropDrill<Decoration option>
-      |}) =
+    let Component
+        (props:
+            {|
+                Decorations: Decoration seq
+                Slot: Slot
+                ChosenDecoration: PropDrill<Decoration option>
+            |})
+        =
         let (Slot slot) = props.Slot
 
         let decorations: Decoration list =
