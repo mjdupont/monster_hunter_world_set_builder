@@ -7,14 +7,12 @@ module DecorationSlots =
     open ModelData
     open HelperFunctions
 
-    [<RequireQualifiedAccess>]
-    type Properties = {
-        Decorations: Decoration seq
-        ChosenDecoSlots: PropDrill<DecorationSlots>
-    }
 
     [<ReactComponent>]
-    let Component (props: Properties) =
+    let Component (props: {|
+        Decorations: Decoration seq
+        ChosenDecoSlots: PropDrill<DecorationSlots>
+    |}) =
 
         let updateDecoration (newDecoration: Decoration option) (decorationSlot: DecorationSlot) : DecorationSlot =
             decorationSlot
@@ -54,13 +52,13 @@ module DecorationSlots =
                     match decorationSlot with
                     | None -> Html.div [ Html.h3 "-----" ]
                     | Some(slot, decoration) ->
-                        Decoration.Component {
+                        Decoration.Component {|
                             Decorations = props.Decorations
                             Slot = slot
                             ChosenDecoration = {
                                 Value = decoration
                                 Update = (updateDecorationSlot position)
                             }
-                        }
+                        |}
             ]
         ]

@@ -1,5 +1,5 @@
 SAFE.Client
 FSharp.Core
-Thoth.Json.Net
 Feliz.SelectSearch
 Fable.Elmish.Debugger
+Thoth.Json

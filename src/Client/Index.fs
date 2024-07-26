@@ -327,18 +327,18 @@ let view (model: Model) dispatch =
                     Legs = if newPiece = model.ChosenSet.Legs then None else newPiece
               }
 
-        let armorProps armorType : Armor.Properties =
+        let armorProps armorType : ({| Decorations : Decoration seq; Armor: Armor seq; ChosenArmor: HelperFunctions.PropDrill<(Armor * DecorationSlots) option> |}) =
             let filteredArmor = gameData.Armor |> Seq.filter (fun a -> a.Type = armorType)
             let updateArmor = (updateArmorPiece armorType >> UpdateChosenSet >> dispatch)
 
-            {
+            {|
                 Decorations = gameData.Decorations
                 Armor = filteredArmor
                 ChosenArmor = {
                     Value = model.ChosenSet.getPiece armorType
                     Update = updateArmor
                 }
-            }
+            |}
 
         Html.section [
             prop.className "h-screen w-screen"
@@ -366,7 +366,7 @@ let view (model: Model) dispatch =
                                 "armorsetbuilder m-auto flex flex-col items-center stretch center center w-max bg-white/80 rounded-md shadow-md"
                             prop.children [
                                 //Weapon.Component gameData.Decorations gameData.Weapons model.ChosenSet.Weapon ((fun weapon -> { model.ChosenSet with Weapon = weapon }) >> UpdateChosenSet >> dispatch)
-                                WeaponBuilder.Component {
+                                WeaponBuilder.Component {|
                                     Decorations = gameData.Decorations
                                     ChosenWeapon = {
                                         Value = model.ChosenSet.Weapon
@@ -375,13 +375,13 @@ let view (model: Model) dispatch =
                                              >> UpdateChosenSet
                                              >> dispatch)
                                     }
-                                }
+                                |}
                                 Armor.Component(armorProps Headgear)
                                 Armor.Component(armorProps Chest)
                                 Armor.Component(armorProps Gloves)
                                 Armor.Component(armorProps Waist)
                                 Armor.Component(armorProps Legs)
-                                Charm.Component {
+                                Charm.Component {|
                                     Charms = gameData.Charms
                                     ChosenCharm = {
                                         Value = model.ChosenSet.Charm
@@ -389,17 +389,17 @@ let view (model: Model) dispatch =
                                             (fun charm ->
                                                 { model.ChosenSet with Charm = charm } |> (UpdateChosenSet >> dispatch))
                                     }
-                                }
+                                |}
                             ]
                         ]
                         Html.div [
                             prop.className
                                 "armorsetbuilder m-auto flex flex-col items-center stretch center center w-max bg-white/80 rounded-md shadow-md"
                             prop.children [
-                                SetSearcher.Component {
+                                SetSearcher.Component {|
                                     Skills = gameData.Skills
                                     SubmitSkills = (fun skills -> ())
-                                }
+                                |}
                             ]
                         ]
                     ]

@@ -7,14 +7,11 @@ module Charm =
     open DataTypes
     open HelperFunctions
 
-    [<RequireQualifiedAccess>]
-    type Properties = {
-        Charms: Charm list
-        ChosenCharm: PropDrill<(Charm * CharmRank) option>
-    }
-
     [<ReactComponent>]
-    let Component (props: Properties) =
+    let Component (props: 
+      {|Charms: Charm list
+        ChosenCharm: PropDrill<(Charm * CharmRank) option>
+      |}) =
 
         let addDefaultRank (charm: Charm option) : (Charm * CharmRank) option =
             charm

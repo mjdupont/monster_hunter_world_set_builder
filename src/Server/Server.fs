@@ -63,6 +63,5 @@ let app = application {
 [<EntryPoint>]
 let main _ =
     Storage.initialize |> Async.RunSynchronously
-    explore_armorset_skills_real (Storage.armorSets |> Array.ofSeq) (Storage.skills |> Array.ofSeq)
     run app
     0

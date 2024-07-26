@@ -6,14 +6,11 @@ module SkillSelector =
 
     open DataTypes
 
-    [<RequireQualifiedAccess>]
-    type Properties = {
+    [<ReactComponent>]
+    let Component (props: {|
         Skills: Skill seq
         AddSkill: (Skill * int) option -> unit
-    }
-
-    [<ReactComponent>]
-    let Component (props: Properties) =
+    |}) =
         let placeholder = "Select a Skill"
 
         let (skillAndRank: (Skill * int) option), updateSkill = React.useState (None)

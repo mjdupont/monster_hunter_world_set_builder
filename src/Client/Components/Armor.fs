@@ -8,15 +8,14 @@ module Armor =
     open ModelData
     open HelperFunctions
 
-    [<RequireQualifiedAccess>]
-    type Properties = {
-        Decorations: Decoration seq
-        Armor: Armor seq
-        ChosenArmor: PropDrill<(Armor * DecorationSlots) option>
-    }
+
 
     [<ReactComponent>]
-    let Component (props: Properties) =
+    let Component (props: 
+      {|Decorations: Decoration seq 
+        Armor: Armor seq
+        ChosenArmor: PropDrill<(Armor * DecorationSlots) option> 
+      |}) =
 
         let findPieceFromId (id: string) : Armor option =
             let matchingPieces = props.Armor |> Seq.filter (fun p -> p.Id |> sprintf "%i" = id)
@@ -123,13 +122,13 @@ module Armor =
                 match props.ChosenArmor.Value with
                 | None -> Html.h3 "No Piece Selected"
                 | Some(armor, slots) ->
-                    DecorationSlots.Component {
+                    DecorationSlots.Component {|
                         Decorations = props.Decorations
                         ChosenDecoSlots = {
                             Value = slots
                             Update = updateDecorationSlots
                         }
-                    }
+                    |}
 
             ]
         ]

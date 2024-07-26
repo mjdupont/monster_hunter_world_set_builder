@@ -5,15 +5,14 @@ module SelectedSkill =
 
     open DataTypes
 
-    [<RequireQualifiedAccess>]
-    type Properties = {
+
+
+    [<ReactComponent>]
+    let Component (props: {|
         Skill: Skill
         Rank: int
         RemoveSkillCallBack: Skill -> unit
-    }
-
-    [<ReactComponent>]
-    let Component (props: Properties) =
+    |}) =
         printfn "%A" (props.Skill, props.Rank)
 
         Html.div [

@@ -7,14 +7,11 @@ module WeaponBuilder =
     open ModelData
     open HelperFunctions
 
-    [<RequireQualifiedAccess>]
-    type Properties = {
+    [<ReactComponent>]
+    let Component (props: {|
         Decorations: Decoration seq
         ChosenWeapon: PropDrill<(Weapon * DecorationSlots) option>
-    }
-
-    [<ReactComponent>]
-    let Component (props: Properties) =
+    |}) =
         let updateDecorationSlots decorationSlots =
             props.ChosenWeapon.Update(
                 props.ChosenWeapon.Value
@@ -31,7 +28,7 @@ module WeaponBuilder =
                     Html.div [
                         prop.className "flex flex-row"
                         prop.children [
-                            DecorationSizeSelector.Component {
+                            DecorationSizeSelector.Component {|
                                 Position = 1
                                 ChosenDecoSlot = {
                                     Value = slots.First
@@ -39,8 +36,8 @@ module WeaponBuilder =
                                         (fun (decoSlot: DecorationSlot) ->
                                             Some(weapon, { slots with First = decoSlot }) |> props.ChosenWeapon.Update)
                                 }
-                            }
-                            DecorationSizeSelector.Component {
+                            |}
+                            DecorationSizeSelector.Component {|
                                 Position = 2
                                 ChosenDecoSlot = {
                                     Value = slots.Second
@@ -48,8 +45,8 @@ module WeaponBuilder =
                                         (fun (decoSlot: DecorationSlot) ->
                                             Some(weapon, { slots with Second = decoSlot }) |> props.ChosenWeapon.Update)
                                 }
-                            }
-                            DecorationSizeSelector.Component {
+                            |}
+                            DecorationSizeSelector.Component {|
                                 Position = 3
                                 ChosenDecoSlot = {
                                     Value = slots.Third
@@ -57,16 +54,16 @@ module WeaponBuilder =
                                         (fun (decoSlot: DecorationSlot) ->
                                             Some(weapon, { slots with Third = decoSlot }) |> props.ChosenWeapon.Update)
                                 }
-                            }
+                            |}
                         ]
                     ]
 
-                    DecorationSlots.Component {
+                    DecorationSlots.Component {|
                         Decorations = props.Decorations
                         ChosenDecoSlots = {
                             Value = slots
                             Update = updateDecorationSlots
                         }
-                    }
+                    |}
             ]
         ]

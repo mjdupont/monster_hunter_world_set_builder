@@ -5,14 +5,13 @@ module SetSearcher =
 
     open DataTypes
 
-    [<RequireQualifiedAccess>]
-    type Properties = {
-        Skills: Skill seq
-        SubmitSkills: (Skill * int) list -> unit
-    }
+
 
     [<ReactComponent>]
-    let Component (props: Properties) =
+    let Component (props:  {|
+        Skills: Skill seq
+        SubmitSkills: (Skill * int) list -> unit
+    |}) =
 
         let (selectedSkills: (Skill * int) list), updateSelectedSkills = React.useState []
 
@@ -40,16 +39,16 @@ module SetSearcher =
                         for x in selectedSkills ->
                             let (skill, rank) = x
 
-                            SelectedSkill.Component {
+                            SelectedSkill.Component {|
                                 Skill = skill
                                 Rank = rank
                                 RemoveSkillCallBack = removeSkill
-                            }
+                            |}
                     ]
                 ]
-                SkillSelector.Component {
+                SkillSelector.Component {|
                     Skills = unselectedSkills
                     AddSkill = addSkill
-                }
+                |}
             ]
         ]

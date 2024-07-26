@@ -7,15 +7,13 @@ module Decoration =
     open DataTypes
     open HelperFunctions
 
-    [<RequireQualifiedAccess>]
-    type Properties = {
-        Decorations: Decoration seq
-        Slot: Slot
-        ChosenDecoration: PropDrill<Decoration option>
-    }
-
     [<ReactComponent>]
-    let Component (props: Properties) =
+    let Component (props: 
+      {|
+          Decorations: Decoration seq
+          Slot: Slot
+          ChosenDecoration: PropDrill<Decoration option>
+      |}) =
         let (Slot slot) = props.Slot
 
         let decorations: Decoration list =

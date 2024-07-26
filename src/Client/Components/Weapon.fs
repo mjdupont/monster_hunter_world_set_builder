@@ -8,15 +8,14 @@ module Weapon =
     open ModelData
     open HelperFunctions
 
-    [<RequireQualifiedAccess>]
-    type Properties = {
+
+
+    [<ReactComponent>]
+    let Component (props: {|
         Decorations: Decoration seq
         Weapons: Weapon seq
         ChosenWeapon: PropDrill<(Weapon * DecorationSlots) option>
-    }
-
-    [<ReactComponent>]
-    let Component (props: Properties) =
+    |}) =
 
         let findWeaponFromId (id: string) =
             let matchingPieces =
@@ -83,13 +82,13 @@ module Weapon =
                 match props.ChosenWeapon.Value with
                 | None -> Html.div [ prop.children [ Html.h3 "No Weapon Selected" ] ]
                 | Some(selectedWeapon, decorationSlots) ->
-                    DecorationSlots.Component {
+                    DecorationSlots.Component {|
                         Decorations = props.Decorations
                         ChosenDecoSlots = {
                             Value = decorationSlots
                             Update = updateDecorationSlots
                         }
-                    }
+                    |}
 
             ]
         ]

@@ -225,7 +225,7 @@ type ChosenSet = {
             Charm = chosenSet.Charm |> Option.map (fun (charm, rank) -> (charm.Id, rank.Level))
         }
 
-        storedForm |> Thoth.Json.Net.Encode.Auto.toString
+        storedForm |> Thoth.Json.Encode.Auto.toString<StoredChosenSet>
 
     static member deserialize
         (decorations: Decoration seq)
@@ -235,7 +235,7 @@ type ChosenSet = {
         (storedString: string)
         : ChosenSet =
         let storedForm: Result<StoredChosenSet, string> =
-            storedString |> Thoth.Json.Net.Decode.Auto.fromString
+            storedString |> Thoth.Json.Decode.Auto.fromString
 
         /// Handle a weird case where decoration slots in data and storage disagree on decoration slots. Possibly would happen if armor is nerfed/patched.
         /// Default to using data over storage

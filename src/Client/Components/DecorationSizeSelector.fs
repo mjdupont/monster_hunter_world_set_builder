@@ -7,14 +7,13 @@ module DecorationSizeSelector =
     open DataTypes
     open HelperFunctions
 
-    [<RequireQualifiedAccess>]
-    type Properties = {
-        Position: int
-        ChosenDecoSlot: PropDrill<DecorationSlot>
-    }
+
 
     [<ReactComponent>]
-    let Component (props: Properties) =
+    let Component (props: {|
+        Position: int
+        ChosenDecoSlot: PropDrill<DecorationSlot>
+    |}) =
         let noDecorationElement () =
             Html.label [
                 prop.children [
