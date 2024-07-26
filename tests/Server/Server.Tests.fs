@@ -30,7 +30,7 @@ let all =
         server
         SetSearchLogic.Tests.setSearchLogic
         DecorationAssignment.Tests.decorationAssignment
-        DecorationAssignment.Tests.decorationAssignmentFull (*MaxFlowMap.Tests.maxFlowMap*)
+        DecorationAssignment.Tests.decorationAssignmentFull
     ]
 
 let writeData () =
