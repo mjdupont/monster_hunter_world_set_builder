@@ -5,6 +5,7 @@
   </PropertyGroup>
   <ItemGroup>
     <Compile Include="Helpers.fs" />
+    <Compile Include="Option.fs" />
     <Compile Include="DataTypes.fs" />   
     <Compile Include="MaxFlow.fs" />
     <Compile Include="MaxFlowMap.fs" />
