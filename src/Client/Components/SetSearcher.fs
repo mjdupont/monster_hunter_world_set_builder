@@ -3,7 +3,7 @@ namespace Components
 module SetSearcher =
     open Feliz
 
-    open DataTypes
+    open GameDataTypes
 
 
 
@@ -53,5 +53,11 @@ module SetSearcher =
                     Skills = unselectedSkills
                     AddSkill = addSkill
                 |}
+                Html.button [
+                  prop.onClick (fun _me -> props.SubmitSkills selectedSkills)
+                  prop.children [
+                    Html.text "Find Set"
+                  ]
+                ]
             ]
         ]

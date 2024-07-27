@@ -6,7 +6,7 @@
   <ItemGroup>
     <Compile Include="Helpers.fs" />
     <Compile Include="Option.fs" />
-    <Compile Include="DataTypes.fs" />
+    <Compile Include="GameDataTypes.fs" />
     <Compile Include="ModelData.fs" />   
     <Compile Include="DecorationAssignment.fs" /> 
     <Compile Include="SetSearchLogic.fs" /> 

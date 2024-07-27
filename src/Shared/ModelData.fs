@@ -1,8 +1,9 @@
 module ModelData
 
-open DataTypes
+open GameDataTypes
 
 type DecorationSlot = (Slot * Decoration option) option
+
 module DecorationSlot =
 
     let skillsFromDecorationSlot (decorationSlot: DecorationSlot) =
@@ -68,8 +69,9 @@ type DecorationSlots = {
         |]
         |> Array.concat
 
-    static member asSlots (decorationSlots:DecorationSlots) = 
-        [ First; Second; Third ] |> List.choose (fun pos -> decorationSlots.SlotFromPosition pos)
+    static member asSlots(decorationSlots: DecorationSlots) =
+        [ First; Second; Third ]
+        |> List.choose (fun pos -> decorationSlots.SlotFromPosition pos)
 
 
 type ChosenSet = {
@@ -102,7 +104,7 @@ type ChosenSet = {
         | ArmorType.Waist -> { chosenSet with Waist = armor }
         | ArmorType.Legs -> { chosenSet with Legs = armor }
 
-    static member getPiece (armorType, (chosenSet: ChosenSet)) =
+    static member getPiece(armorType, (chosenSet: ChosenSet)) =
         match armorType with
         | Headgear -> chosenSet.Headgear
         | Chest -> chosenSet.Chest
@@ -110,19 +112,19 @@ type ChosenSet = {
         | Waist -> chosenSet.Waist
         | Legs -> chosenSet.Legs
 
-    static member getUnassignedPieces chosenSet = 
-      [ for armorType in ArmorType.allTypes do
-        match ChosenSet.getPiece (armorType, chosenSet) with
-        | Some piece -> ()
-        | _ -> armorType
-      ]
+    static member getUnassignedPieces chosenSet = [
+        for armorType in ArmorType.allTypes do
+            match ChosenSet.getPiece (armorType, chosenSet) with
+            | Some piece -> ()
+            | _ -> armorType
+    ]
 
-    static member getAssignedPieces chosenSet = 
-      [ for armorType in ArmorType.allTypes do
-        match ChosenSet.getPiece (armorType, chosenSet) with
-        | Some piece -> yield piece
-        | _ -> ()
-      ]
+    static member getAssignedPieces chosenSet = [
+        for armorType in ArmorType.allTypes do
+            match ChosenSet.getPiece (armorType, chosenSet) with
+            | Some piece -> yield piece
+            | _ -> ()
+    ]
 
     member this.getPiece armorType = ChosenSet.getPiece (armorType, this)
 
@@ -200,14 +202,13 @@ let accumulateSkills (skills: SkillRank array) =
         }))
 
 type ChosenSet with
-  static member skillCount (skills: Skill list) (chosenSet: ChosenSet) =
-    chosenSet 
-    |> ChosenSet.allSkillRanks 
-    |> accumulateSkills
-    |> Array.choose (fun decoSr ->
-      skills
-      |> List.filter (fun sk -> skillRankOfSkill sk decoSr)
-      |> List.tryExactlyOne
-      |> Option.map (fun sk -> sk, decoSr.Level)
-      )
-    |> List.ofArray
+    static member skillCount (skills: Skill list) (chosenSet: ChosenSet) =
+        chosenSet
+        |> ChosenSet.allSkillRanks
+        |> accumulateSkills
+        |> Array.choose (fun decoSr ->
+            skills
+            |> List.filter (fun sk -> skillRankOfSkill sk decoSr)
+            |> List.tryExactlyOne
+            |> Option.map (fun sk -> sk, decoSr.Level))
+        |> List.ofArray

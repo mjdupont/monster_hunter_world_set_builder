@@ -4,7 +4,7 @@ module Charm =
     open Feliz
     open Feliz.SelectSearch
 
-    open DataTypes
+    open GameDataTypes
     open HelperFunctions
 
     [<ReactComponent>]

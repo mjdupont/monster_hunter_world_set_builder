@@ -1,7 +1,7 @@
 module DataAccess
 
 open FSharp.Data
-open DataTypes
+open GameDataTypes
 open System.Text.RegularExpressions
 open Helpers
 
@@ -25,7 +25,7 @@ module InferredTypes =
                 sr.Modifiers.JsonValue
                 |> function
                     | JsonValue.Record mods when mods |> Array.length > 0 ->
-                        mods |> Array.choose  skillRankModifierMatcher
+                        mods |> Array.choose skillRankModifierMatcher
                     | _ -> [||]
             Skill = sr.Skill
             SkillName = skillNames |> Map.tryFind sr.Skill |> Option.defaultValue "" //TODO - handle this better
@@ -196,7 +196,7 @@ module InferredTypes =
             }
             Id = armor.Id
             Name = armor.Name
-            Rank = armor.Rank |> (|Rank|_|) |> Option.defaultValue DataTypes.Rank.Low //TODO Handle this default better
+            Rank = armor.Rank |> (|Rank|_|) |> Option.defaultValue GameDataTypes.Rank.Low //TODO Handle this default better
             Rarity = armor.Rarity
             Resistances = {
                 Ice = armor.Resistances.Ice
@@ -213,7 +213,7 @@ module InferredTypes =
                     |> (SkillRank.toReal skillNames))
             Slots = armor.Slots |> Array.map (fun slot -> Slot slot.Rank)
             Slug = armor.Id.ToString()
-            Type = armor.Type |> (|ArmorType|_|) |> Option.defaultValue DataTypes.ArmorType.Legs //TODO Handle this default better
+            Type = armor.Type |> (|ArmorType|_|) |> Option.defaultValue GameDataTypes.ArmorType.Legs //TODO Handle this default better
         }
 
         let loadArmor (skillNames: Map<int, string>) : Async<Armor list> = async {
@@ -327,7 +327,7 @@ module InferredTypes =
         let toReal (skillNames: Map<int, string>) (armorSet: Api.Root) = {
             Id = armorSet.Id
             Name = armorSet.Name
-            Rank = armorSet.Rank |> (|Rank|_|) |> Option.defaultValue DataTypes.Rank.Low //TODO Handle this default better
+            Rank = armorSet.Rank |> (|Rank|_|) |> Option.defaultValue GameDataTypes.Rank.Low //TODO Handle this default better
             Pieces = [| for piece in armorSet.Pieces -> piece.Id |]
             Bonus =
                 armorSet.Bonus
@@ -404,7 +404,7 @@ module Testing =
         let armorMap =
             armor
             |> Seq.groupBy _.Type
-            |> Seq.choose (fun (key, value) -> DataTypes.(|ArmorType|_|) key |> Option.map (fun x -> x, value))
+            |> Seq.choose (fun (key, value) -> GameDataTypes.(|ArmorType|_|) key |> Option.map (fun x -> x, value))
             |> Map.ofSeq
 
         for KeyValue(armorSlot, armor) in armorMap do

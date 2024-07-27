@@ -4,7 +4,7 @@ module Armor =
     open Feliz
     open Feliz.SelectSearch
 
-    open DataTypes
+    open GameDataTypes
     open ModelData
     open HelperFunctions
 

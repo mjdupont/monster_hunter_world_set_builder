@@ -6,7 +6,7 @@ open Helpers
 
 open SAFE
 
-open DataTypes
+open GameDataTypes
 open ModelData
 open Components
 open HelperFunctions.Deferred
@@ -83,6 +83,7 @@ type Msg =
     | LoadData of DeferredMessage<MHWDataType, string>
     | CheckIfFullyLoaded
     | LoadChosenSetFromWebStorage
+    | FindMatchingSet of (Skill * int) list
     | UpdateChosenSet of ChosenSet
     | SetInput of string
 
@@ -237,6 +238,24 @@ let update msg (model: Model) =
         do ChosenSet.storeToWebStorage set
         { model with ChosenSet = set }, Cmd.none
     | SetInput value -> { model with Input = value }, Cmd.none
+    | FindMatchingSet requestedSkills ->
+        match model.GameData, model.ChosenSet.Weapon with
+        | PartialDeferred.Success gameData, Some weapon ->
+            match
+                findSet
+                    gameData.Skills
+                    (gameData.Decorations |> asCounts)
+                    weapon
+                    requestedSkills
+                    model.ChosenSet
+                    gameData.Armor
+                    gameData.Charms
+            with
+            | None -> model, Cmd.none
+            | Some(chosenSet, armor, charms) ->
+                { model with ChosenSet = chosenSet }, Cmd.ofMsg (UpdateChosenSet chosenSet)
+
+        | _ -> model, Cmd.none
 
 open Feliz
 
@@ -404,7 +423,7 @@ let view (model: Model) dispatch =
                             prop.children [
                                 SetSearcher.Component {|
                                     Skills = gameData.Skills
-                                    SubmitSkills = (fun skills -> ())
+                                    SubmitSkills = (FindMatchingSet >> dispatch)
                                 |}
                             ]
                         ]
