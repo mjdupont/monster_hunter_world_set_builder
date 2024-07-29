@@ -91,7 +91,10 @@ let assignDecorations
     (requestedSkills: (Skill * int) list)
     (decorationSlots: (Slot * int) list)
     (decorations: (Decoration * int) list)
-    : (Slot * Decoration option) list option =
+    : (Slot * Decoration option) list option = 
+
+    printfn "Skills(%i): %A" (skills |> List.length) skills
+    printfn "Decorations(%i/%i): %A" (decorations |> List.length) (decorations |> List.map snd |> List.sum) skills
 
     //Assign decorations that aren't in paired decorations:
     let rec assignDecorationsBFrec decorationAssignments (slots: (Slot * int) list) requestedSkills decorations =
@@ -265,4 +268,6 @@ let assignDecorations
 
     let reservedSlots = reservedSlots @ reservedSlots'
 
-    assignMinimalDecorations [] unreservedSlots ([], reservedSlots) requestedSkills decorations
+    let output = assignMinimalDecorations [] unreservedSlots ([], reservedSlots) requestedSkills decorations
+
+    output

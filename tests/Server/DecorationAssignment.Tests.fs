@@ -500,4 +500,50 @@ let decorationAssignment =
 
             Expect.isFasterThan runAssignment threeSeconds "Took longer than three seconds to assign decorations"
             Expect.isSome assignment "Failed to find a decoration assignment"
+
+
+        testCase "Regression test from example"
+        <| fun _ ->
+
+            let expectedSkills = [
+
+                3, "Critical Eye"
+                3, "Guard"
+                7, "Agitator"
+            ]
+
+            let counts, names = expectedSkills |> List.unzip
+            let matchedSkills = names |> stringMatch skills (fun s -> s.Name)
+
+            let requestedSkills = List.zip matchedSkills counts
+
+            let allDecorations =
+                decorations
+                |> List.map (fun decoration ->
+                    decoration,
+                    (decoration
+                     |> containedSkills skills
+                     |> List.map (fun (skill, level) ->
+                         skillCaps skills
+                         |> Map.tryFind skill
+                         |> Option.defaultValue 0
+                         |> (fun x -> int (ceil (float x) / (float level))))
+                     |> List.min))
+
+            let slots =
+                [
+                  Slot 4, 5;
+                  Slot 1, 2;
+                  Slot 2, 2
+                ]
+
+
+            let runAssignment () =
+                let _ = assignDecorations skills requestedSkills slots allDecorations
+                ()
+
+            let assignment = assignDecorations skills requestedSkills slots allDecorations
+
+            Expect.isFasterThan runAssignment threeSeconds "Took longer than three seconds to assign decorations"
+            Expect.isSome assignment "Failed to find a decoration assignment"
     ]

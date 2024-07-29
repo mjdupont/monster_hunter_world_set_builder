@@ -54,9 +54,14 @@ let assignArmor
         |> List.sortByDescending snd
 
     let validCharmsScored =
+      if chosenSet.Charm |> Option.isSome 
+      then []
+      else
         charms
         |> List.map (fun c -> c, c |> charmSkillContribution skills remainingSkillNeed)
         |> List.sortByDescending snd
+
+
 
     match validArmorScored, validCharmsScored with
     | (bestArmor, armorContrib) :: restArmor, [] ->
@@ -94,13 +99,13 @@ let allocateToDecorationSlot assignedDecorations (decorationSlot: DecorationSlot
             |> List.partition (fun (Slot aSlot, _decoration) -> aSlot = s)
         with
         | (_slot, decoration) :: rest, notMatching -> Some(rest @ notMatching, Some(Slot s, Some decoration))
-        | [], _ -> None
+        | [], _ -> Some(assignedDecorations, decorationSlot)
 
 let allocateToDecorationSlots assignedDecorations (decorationSlots: DecorationSlots) = option {
     let! remainingDecos, firstSlot = allocateToDecorationSlot assignedDecorations decorationSlots.First
     let! remainingDecos, secondSlot = allocateToDecorationSlot remainingDecos decorationSlots.Second
     let! remainingDecos, thirdSlot = allocateToDecorationSlot remainingDecos decorationSlots.Third
-
+    
     return
         remainingDecos,
         {
@@ -124,23 +129,27 @@ let allocateToWeapon (assignedDecorations, chosenSet) = option {
 }
 
 let allocateToArmor (assignedDecorations, chosenSet) armorType = option {
-    let! armor, decorationSlots = ChosenSet.getPiece (armorType, chosenSet)
+    let! armor, decorationSlots = ChosenSet.getPiece (armorType, chosenSet) // TODO: If we don't find armor here, we don't actually want to fail
     let! remainingDecos, assignedDecorationSlots = decorationSlots |> allocateToDecorationSlots assignedDecorations
     return remainingDecos, ChosenSet.setArmor armorType (Some(armor, assignedDecorationSlots)) chosenSet
 }
 
 let allocateDecorations chosenSet assignedDecorations : ChosenSet option = option {
     let! decorations, chosenSet = allocateToWeapon (assignedDecorations, chosenSet)
-
-    let! decorations, chosenSet =
+    let chosenPieces, emptyPieces =
         ArmorType.allTypes
+        |> List.partition (fun armorType -> ChosenSet.getPiece (armorType, chosenSet) |> Option.isSome)
+    
+    let! decorations, chosenSet =
+        chosenPieces
         |> List.fold
             (fun state next -> state |> Option.bind (fun s -> allocateToArmor s next))
             (Some(decorations, chosenSet))
-
     match decorations with
-    | [] -> return chosenSet
-    | _ -> return! None
+    | [] -> 
+      return chosenSet
+    | _ -> 
+      return! None
 }
 
 let rec findSet
@@ -157,7 +166,6 @@ let rec findSet
     =
     let achievedSkills = ChosenSet.skillCount skills chosenSet
     let remainingSkillNeed = requestedSkillsDifference requestedSkills achievedSkills
-
     let _assignedArmorSlots, unassignedArmorSlots =
         chosenSet
         |> ChosenSet.getAssignedPieces
@@ -171,15 +179,19 @@ let rec findSet
 
     let unassignedSlots = unassignedArmorSlots @ unassignedWeaponSlots
 
+    printfn "Remaining skill need: %A" remainingSkillNeed
+    printfn "Empty slots: %A" unassignedSlots
+    printfn "ChosenSet: %A" chosenSet
+
     match assignDecorations skills remainingSkillNeed (unassignedSlots |> List.map fst |> asCounts) decorations with
     | Some assignment ->
         let assignedDecorations =
             assignment
             |> List.choose (fun (s, mDeco) -> mDeco |> Option.map (fun mDec -> s, mDec))
             |> List.sortByDescending fst
-
         match allocateDecorations chosenSet assignedDecorations with
-        | Some chosenSet -> Some(chosenSet, armor, charms)
+        | Some chosenSet -> 
+          Some(chosenSet, armor, charms)
         | None ->
             match assignArmor skills chosenSet armor charms decorations requestedSkills with
             | Some newChosenSet ->

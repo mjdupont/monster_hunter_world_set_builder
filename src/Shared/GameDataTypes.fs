@@ -70,7 +70,8 @@ type Decoration = {
     Slot: int
     Skills: SkillRank[]
     IconUri: string option
-}
+} with
+  override this.ToString() = this.Name
 
 type ArmorType =
     | Headgear
@@ -102,6 +103,7 @@ type Resistances = {
 
 type Slot = Slot of int
 
+[<StructuredFormatDisplay("{Name}")>]
 type Armor = {
     Id: int
     Slug: string
@@ -117,7 +119,8 @@ type Armor = {
 // ; Assets: ArmorAssets
 // ; Crafting: ArmorCraftingInfo
 // ; Attributes: ArmorAttributes
-}
+} with
+  override this.ToString() = this.Name
 
 type CharmRank = {
     Level: int
@@ -126,12 +129,13 @@ type CharmRank = {
 // ; Crafting: CharmRankCrafting
 }
 
+[<StructuredFormatDisplay("{Name}")>]
 type Charm = {
     Id: int
     Slug: string
     Name: string
     Ranks: CharmRank[]
-}
+} with override this.ToString() = this.Name 
 
 type ArmorSetBonusRank = { Pieces: int; Skill: SkillRank }
 
@@ -156,8 +160,10 @@ type Skill = {
     Name: string
     Description: string
     Ranks: SkillRank[]
-}
+} with
+  override this.ToString() = this.Name
 
+[<StructuredFormatDisplay("{Name}")>]
 type Weapon = {
     Id: int
     //; Slug: string
@@ -167,7 +173,8 @@ type Weapon = {
     Attack: int
     Slots: Slot[]
 // Rest to Follow
-}
+} with
+  override this.ToString() = this.Name
 
 
 ///
@@ -252,6 +259,19 @@ let skillCaps skills =
     skills
     |> List.map (fun skill -> skill, (skill.Ranks |> Array.map (fun sr -> sr.Level) |> Array.max))
     |> Map.ofList
+
+let allDecorations skills (decorations:Decoration list) =
+    decorations
+    |> List.map (fun decoration ->
+        decoration,
+        (decoration
+          |> containedSkills skills
+          |> List.map (fun (skill, level) ->
+              skillCaps skills
+              |> Map.tryFind skill
+              |> Option.defaultValue 0
+              |> (fun x -> int (ceil (float x) / (float level))))
+          |> List.min))
 
 
 

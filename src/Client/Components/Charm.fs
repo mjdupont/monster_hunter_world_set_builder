@@ -29,7 +29,11 @@ module Charm =
                 props.Charms |> List.filter (fun c -> c.Id |> sprintf "%i" = id)
 
             let matchingCharm = matchingCharms |> List.tryHead
+            
             matchingCharm
+
+        let updateCharmIfDifferent (maybeCharm: Charm option) = 
+          maybeCharm |> Option.bind (fun charm -> if props.ChosenCharm.Value |> Option.map (fun (chCharm, chRank) -> chCharm = charm) |> Option.defaultValue false then None else Some charm)
 
         let containsSkillSimple (charm: Charm option) (searchQuery: string) =
             match charm with
@@ -64,7 +68,7 @@ module Charm =
                     selectSearch.placeholder "Select a Charm"
                     selectSearch.search true
                     selectSearch.filterOptions filterOptions
-                    selectSearch.onChange (findCharmFromId >> addDefaultRank >> props.ChosenCharm.Update)
+                    selectSearch.onChange (findCharmFromId >> updateCharmIfDifferent >> addDefaultRank >> props.ChosenCharm.Update)
                     selectSearch.options [
                         for charm in props.Charms ->
                             {

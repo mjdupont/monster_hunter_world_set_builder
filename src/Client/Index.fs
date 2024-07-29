@@ -244,7 +244,7 @@ let update msg (model: Model) =
             match
                 findSet
                     gameData.Skills
-                    (gameData.Decorations |> asCounts)
+                    (gameData.Decorations |> allDecorations gameData.Skills)
                     weapon
                     requestedSkills
                     model.ChosenSet
