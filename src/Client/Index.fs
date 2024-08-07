@@ -75,17 +75,18 @@ type LoadingMHWData = {
 
 type Model = {
     GameData: PartialDeferred<LoadingMHWData, MHWData, string>
-    Input: string
     ChosenSet: ChosenSet
+    SkillList: SkillList
 }
 
 type Msg =
     | LoadData of DeferredMessage<MHWDataType, string>
     | CheckIfFullyLoaded
     | LoadChosenSetFromWebStorage
+    | LoadSkillListFromWebStorage
     | FindMatchingSet of (Skill * int) list
     | UpdateChosenSet of ChosenSet
-    | SetInput of string
+    | UpdateSkillList of SkillList
 
 
 let mhwApi = Api.makeProxy<IMHWApi> ()
@@ -104,12 +105,12 @@ let init () : (Model * Cmd<Msg>) =
         ))
 
     let (model: Model) = {
-        Input = ""
         GameData = PartialDeferred.NotAsked
         ChosenSet = {
             ChosenSet.Default with
                 Weapon = customWeapon
         }
+        SkillList = SkillList []
     }
 
     let cmd =
@@ -194,7 +195,10 @@ let update msg (model: Model) =
                 model with
                     GameData = loadingMHWData.asFullyLoaded
             },
-            Cmd.ofMsg LoadChosenSetFromWebStorage
+            Cmd.batch [
+              Cmd.ofMsg LoadChosenSetFromWebStorage
+              Cmd.ofMsg LoadSkillListFromWebStorage
+            ]
         | _ -> model, Cmd.none
     | LoadChosenSetFromWebStorage ->
         let loadedChosenSet =
@@ -234,10 +238,21 @@ let update msg (model: Model) =
                     ChosenSet = loadedChosenSet
             },
             Cmd.none
+
+    | LoadSkillListFromWebStorage ->
+        let loadedSkillList = 
+          match model.GameData with
+          | PartialDeferred.Success gameData ->
+            SkillList.readFromWebStorage gameData.Skills
+          | _ -> SkillList []
+        { model with SkillList = loadedSkillList }, Cmd.none
+
     | UpdateChosenSet set ->
         do ChosenSet.storeToWebStorage set
         { model with ChosenSet = set }, Cmd.none
-    | SetInput value -> { model with Input = value }, Cmd.none
+    | UpdateSkillList list ->
+        do SkillList.storeToWebStorage list
+        { model with SkillList = list }, Cmd.none
     | FindMatchingSet requestedSkills ->
         match model.GameData, model.ChosenSet.Weapon with
         | PartialDeferred.Success gameData, Some weapon ->
@@ -424,6 +439,8 @@ let view (model: Model) dispatch =
                             prop.children [
                                 SetSearcher.Component {|
                                     Skills = gameData.Skills
+                                    SkillList = model.SkillList
+                                    UpdateSkillList = (UpdateSkillList >> dispatch)
                                     SubmitSkills = (FindMatchingSet >> dispatch)
                                 |}
                             ]

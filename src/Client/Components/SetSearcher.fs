@@ -4,6 +4,7 @@ module SetSearcher =
     open Feliz
 
     open GameDataTypes
+    open ModelData
 
 
 
@@ -12,26 +13,28 @@ module SetSearcher =
         (props:
             {|
                 Skills: Skill seq
+                SkillList: SkillList
+                UpdateSkillList: SkillList -> unit
                 SubmitSkills: (Skill * int) list -> unit
             |})
         =
 
-        let (selectedSkills: (Skill * int) list), updateSelectedSkills = React.useState []
+        let (SkillList skillList) = props.SkillList
 
         let unselectedSkills =
             (props.Skills
              |> Seq.filter (fun skill ->
                  not (
-                     selectedSkills
+                     skillList
                      |> List.map (fst >> (fun sk -> sk.Name))
                      |> List.contains skill.Name
                  )))
 
         let addSkill (skill: (Skill * int) option) =
-            updateSelectedSkills (selectedSkills |> List.append ([ skill ] |> List.choose id))
+            props.UpdateSkillList (SkillList (skillList |> List.append ([ skill ] |> List.choose id)))
 
         let removeSkill (skill: Skill) =
-            updateSelectedSkills (selectedSkills |> List.filter (fun (sk, r) -> not (sk.Name = skill.Name)))
+            props.UpdateSkillList (SkillList (skillList |> List.filter (fun (sk, r) -> not (sk.Name = skill.Name))))
 
         Html.div [
             prop.className "SetSearcher flex flex-col gap-1"
@@ -39,9 +42,7 @@ module SetSearcher =
                 Html.div [
                     prop.className "selected-skills-list flex-item flex flex-col gap-1"
                     prop.children [
-                        for x in selectedSkills ->
-                            let (skill, rank) = x
-
+                        for (skill, rank) in skillList ->
                             SelectedSkill.Component {|
                                 Skill = skill
                                 Rank = rank
@@ -54,7 +55,7 @@ module SetSearcher =
                     AddSkill = addSkill
                 |}
                 Html.button [
-                  prop.onClick (fun _me -> props.SubmitSkills selectedSkills)
+                  prop.onClick (fun _me -> props.SubmitSkills skillList)
                   prop.children [
                     Html.text "Find Set"
                   ]
