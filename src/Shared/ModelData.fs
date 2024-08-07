@@ -61,7 +61,7 @@ type DecorationSlots = {
         | Second -> this.Second
         | Third -> this.Third
 
-    static member skillsfromDecorationSlots(decorationSlots: DecorationSlots) =
+    static member skillsFromDecorationSlots(decorationSlots: DecorationSlots) =
         [|
             decorationSlots.First |> DecorationSlot.skillsFromDecorationSlot
             decorationSlots.Second |> DecorationSlot.skillsFromDecorationSlot
@@ -104,7 +104,7 @@ type ChosenSet = {
         | ArmorType.Waist -> { chosenSet with Waist = armor }
         | ArmorType.Legs -> { chosenSet with Legs = armor }
 
-    static member getPiece(armorType, (chosenSet: ChosenSet)) =
+    static member tryGetPiece(armorType, (chosenSet: ChosenSet)) =
         match armorType with
         | Headgear -> chosenSet.Headgear
         | Chest -> chosenSet.Chest
@@ -114,22 +114,22 @@ type ChosenSet = {
 
     static member getUnassignedPieces chosenSet = [
         for armorType in ArmorType.allTypes do
-            match ChosenSet.getPiece (armorType, chosenSet) with
+            match ChosenSet.tryGetPiece (armorType, chosenSet) with
             | Some piece -> ()
             | _ -> armorType
     ]
 
     static member getAssignedPieces chosenSet = [
         for armorType in ArmorType.allTypes do
-            match ChosenSet.getPiece (armorType, chosenSet) with
+            match ChosenSet.tryGetPiece (armorType, chosenSet) with
             | Some piece -> yield piece
             | _ -> ()
     ]
 
-    member this.getPiece armorType = ChosenSet.getPiece (armorType, this)
+    member this.tryGetPiece armorType = ChosenSet.tryGetPiece (armorType, this)
 
     static member skillsFromArmor((armor: Armor), decorationSlots) =
-        [| decorationSlots |> DecorationSlots.skillsfromDecorationSlots; armor.Skills |]
+        [| decorationSlots |> DecorationSlots.skillsFromDecorationSlots; armor.Skills |]
         |> Array.concat
 
     static member armorSetBonuses (armorSets: ArmorSet seq) (chosenSet: ChosenSet) =
@@ -184,7 +184,7 @@ type ChosenSet = {
         let skillsFromWeapon =
             chosenSet.Weapon
             |> Option.map (
-                (fun (weapon, slots) -> [| slots |> DecorationSlots.skillsfromDecorationSlots (*; weapon.Skills*) |])
+                (fun (weapon, slots) -> [| slots |> DecorationSlots.skillsFromDecorationSlots (*; weapon.Skills*) |])
                 >> Array.concat
             )
             |> Option.defaultValue [||]

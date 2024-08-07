@@ -1,3 +1,5 @@
+/// This module is intended to reflect the DataTypes used in the Monster Hunter API.
+/// Very little logic should be included here.
 module GameDataTypes
 
 type Rank =

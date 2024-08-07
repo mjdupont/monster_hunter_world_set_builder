@@ -1,3 +1,5 @@
+/// This module is intended to translate the raw API data pulled from the mhw database into the concrete types reflected in GameDataTypes.fs
+/// The types in GameDataTypes.fs are intentionally very similar to the data pulled from the mhw db.
 module DataAccess
 
 open FSharp.Data

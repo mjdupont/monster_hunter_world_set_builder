@@ -241,6 +241,7 @@ let update msg (model: Model) =
     | FindMatchingSet requestedSkills ->
         match model.GameData, model.ChosenSet.Weapon with
         | PartialDeferred.Success gameData, Some weapon ->
+            printfn "Armor length: %i" (gameData.Armor |> List.length)
             match
                 findSet
                     gameData.Skills
@@ -248,7 +249,7 @@ let update msg (model: Model) =
                     weapon
                     requestedSkills
                     model.ChosenSet
-                    gameData.Armor
+                    (gameData.Armor |> armorByType)
                     gameData.Charms
             with
             | None -> model, Cmd.none
@@ -360,7 +361,7 @@ let view (model: Model) dispatch =
                 Decorations = gameData.Decorations
                 Armor = filteredArmor
                 ChosenArmor = {
-                    Value = model.ChosenSet.getPiece armorType
+                    Value = model.ChosenSet.tryGetPiece armorType
                     Update = updateArmor
                 }
             |}
