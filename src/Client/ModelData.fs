@@ -241,3 +241,42 @@ type ChosenSet with
         : ChosenSet =
         Browser.WebStorage.sessionStorage.getItem ("chosenSet")
         |> ChosenSet.deserialize decorations weapons armor charms
+
+
+type SkillList = 
+  SkillList of (Skill * int) list
+
+type StoredSkillList = 
+  (int * int) list
+
+type SkillList with
+  static member serialize(SkillList skillList) : string = 
+    [ for (skill, count) in skillList ->
+      skill.Id, count ] |> Thoth.Json.Encode.Auto.toString<StoredSkillList>
+
+  static member deserialize(skills:Skill list) skillListString : SkillList option =
+    let maybeRawList = Thoth.Json.Decode.Auto.fromString<StoredSkillList> skillListString
+    let maybeTranslatedList = 
+      maybeRawList |> Result.map (fun rawList ->
+        SkillList 
+          [ for skId, count in rawList do
+            let maybePair = skills |> List.filter (fun skill -> skill.Id = skId) |> List.tryExactlyOne |> Option.map (fun skill -> skill, count)
+            match maybePair with
+            | Some pair -> yield pair
+            | None -> 
+              printfn "No Skill was found for skill Id %i" skId
+          ] 
+      )
+    
+    match maybeTranslatedList with
+    | Ok list -> Some list
+    | Error _ -> None
+    
+  static member storeToWebStorage(SkillList skillList) =
+    let serialized = SkillList.serialize (SkillList skillList)
+    Browser.WebStorage.sessionStorage.setItem ("skillList", serialized)
+
+  static member readFromWebStorage(skills: Skill list) =
+    Browser.WebStorage.sessionStorage.getItem ("skillList") 
+    |> SkillList.deserialize skills  
+    |> Option.defaultValue (SkillList [])
