@@ -73,6 +73,10 @@ type DecorationSlots = {
         [ First; Second; Third ]
         |> List.choose (fun pos -> decorationSlots.SlotFromPosition pos)
 
+type Armor with 
+  static member skillsFromArmor((armor: Armor), decorationSlots) =
+      [| decorationSlots |> DecorationSlots.skillsFromDecorationSlots; armor.Skills |]
+      |> Array.concat
 
 type ChosenSet = {
     Weapon: (Weapon * DecorationSlots) option
@@ -128,10 +132,6 @@ type ChosenSet = {
 
     member this.tryGetPiece armorType = ChosenSet.tryGetPiece (armorType, this)
 
-    static member skillsFromArmor((armor: Armor), decorationSlots) =
-        [| decorationSlots |> DecorationSlots.skillsFromDecorationSlots; armor.Skills |]
-        |> Array.concat
-
     static member armorSetBonuses (armorSets: ArmorSet seq) (chosenSet: ChosenSet) =
 
         let tryFindMatchingArmorSet setId =
@@ -173,7 +173,7 @@ type ChosenSet = {
                 chosenSet.Waist
                 chosenSet.Legs
             |]
-            |> Array.choose (Option.map ChosenSet.skillsFromArmor)
+            |> Array.choose (Option.map Armor.skillsFromArmor)
             |> Array.concat
 
         let skillsFromCharm =

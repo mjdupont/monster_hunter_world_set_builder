@@ -258,18 +258,17 @@ let update msg (model: Model) =
         | PartialDeferred.Success gameData, Some weapon ->
             printfn "Armor length: %i" (gameData.Armor |> List.length)
             match
-                findSet
+                assignArmor3
                     gameData.Skills
-                    (gameData.Decorations |> allDecorations gameData.Skills)
-                    weapon
-                    requestedSkills
                     model.ChosenSet
                     (gameData.Armor |> armorByType)
-                    gameData.Charms
+                    (gameData.Charms |> List.map (fun c -> c.Ranks |> Array.map (fun cr -> c, cr) |> List.ofArray) |> List.concat)
+                    (gameData.Decorations |> allDecorations gameData.Skills)
+                    requestedSkills
             with
-            | None -> model, Cmd.none
-            | Some(chosenSet, armor, charms) ->
-                { model with ChosenSet = chosenSet }, Cmd.ofMsg (UpdateChosenSet chosenSet)
+            | [] -> model, Cmd.none
+            | set :: rest ->
+                { model with ChosenSet = set }, Cmd.ofMsg (UpdateChosenSet set)
 
         | _ -> model, Cmd.none
 
@@ -334,9 +333,9 @@ let view (model: Model) dispatch =
                 ]
         ]
 
-        let updateArmorPiece armorType newPiece =
+        let updateArmorPiece (armorType:ArmorType) newPiece =
             match armorType with
-            | Headgear -> {
+            | ArmorType.Headgear -> {
                 model.ChosenSet with
                     Headgear =
                         if newPiece = model.ChosenSet.Headgear then
@@ -344,19 +343,19 @@ let view (model: Model) dispatch =
                         else
                             newPiece
               }
-            | Chest -> {
+            | ArmorType.Chest -> {
                 model.ChosenSet with
                     Chest = if newPiece = model.ChosenSet.Chest then None else newPiece
               }
-            | Gloves -> {
+            | ArmorType.Gloves -> {
                 model.ChosenSet with
                     Gloves = if newPiece = model.ChosenSet.Gloves then None else newPiece
               }
-            | Waist -> {
+            | ArmorType.Waist -> {
                 model.ChosenSet with
                     Waist = if newPiece = model.ChosenSet.Waist then None else newPiece
               }
-            | Legs -> {
+            | ArmorType.Legs -> {
                 model.ChosenSet with
                     Legs = if newPiece = model.ChosenSet.Legs then None else newPiece
               }
@@ -417,11 +416,11 @@ let view (model: Model) dispatch =
                                              >> dispatch)
                                     }
                                 |}
-                                Armor.Component(armorProps Headgear)
-                                Armor.Component(armorProps Chest)
-                                Armor.Component(armorProps Gloves)
-                                Armor.Component(armorProps Waist)
-                                Armor.Component(armorProps Legs)
+                                Armor.Component(armorProps ArmorType.Headgear)
+                                Armor.Component(armorProps ArmorType.Chest)
+                                Armor.Component(armorProps ArmorType.Gloves)
+                                Armor.Component(armorProps ArmorType.Waist)
+                                Armor.Component(armorProps ArmorType.Legs)
                                 Charm.Component {|
                                     Charms = gameData.Charms
                                     ChosenCharm = {

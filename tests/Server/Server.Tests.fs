@@ -9,25 +9,9 @@ open Thoth
 open System.IO
 open Helpers.Constants
 
-let server =
-    testList "Server" [
-        testCase "Adding valid Todo"
-        <| fun _ ->
-            // let validTodo = Todo.create "TODO"
-            // let expectedResult = Ok()
-
-            // // let result = Storage.addTodo validTodo
-
-            // Expect.equal result expectedResult "Result should be ok"
-            // Expect.contains Storage.todos validTodo "Storage should contain new todo"
-
-            Expect.equal "NotImplemented" "NotImplemented" "These should be fine because they are placeholders"
-    ]
-
 let all =
     testList "All" [
         Shared.Tests.shared
-        server
         GameDataTypes.Tests.gameDataTypes
         DecorationAssignment.Tests.decorationAssignment
         SetSearchLogic.Tests.setSearchLogic
@@ -35,7 +19,7 @@ let all =
     ]
 
 let writeData () =
-    let skillNames, skills' = InferredTypes.Skill.loadSkills |> Async.RunSynchronously
+    let skillNames, skills = InferredTypes.Skill.loadSkills |> Async.RunSynchronously
 
     let decorations =
         InferredTypes.Decoration.loadDecorations skillNames |> Async.RunSynchronously
@@ -46,7 +30,7 @@ let writeData () =
         |> (fun str -> File.WriteAllText(skillsNameFile, str))
 
     do
-        skills'
+        skills
         |> Thoth.Json.Net.Encode.Auto.toString
         |> (fun str -> File.WriteAllText(skillFile, str))
 
