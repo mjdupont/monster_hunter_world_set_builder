@@ -11,6 +11,9 @@ let sharedPath = Path.getFullName "src/Shared"
 let serverPath = Path.getFullName "src/Server"
 let clientPath = Path.getFullName "src/Client"
 let deployPath = Path.getFullName "deploy"
+let resourcePath = Path.getFullName "resources"
+let resourceDestination = Path.getFullName "deploy/resources"
+
 let sharedTestsPath = Path.getFullName "tests/Shared"
 let serverTestsPath = Path.getFullName "tests/Server"
 let clientTestsPath = Path.getFullName "tests/Client"
@@ -31,7 +34,7 @@ Target.create "Bundle" (fun _ ->
 
 Target.create "Azure" (fun _ ->
     let web = webApp {
-        name "SAFE-App"
+        name "MonsterHunterSetBuilder"
         operating_system OS.Linux
         runtime_stack (DotNet "8.0")
         zip_deploy "deploy"
@@ -42,7 +45,7 @@ Target.create "Azure" (fun _ ->
         add_resource web
     }
 
-    deployment |> Deploy.execute "SAFE-App" Deploy.NoParameters |> ignore)
+    deployment |> Deploy.execute "MonsterHunterSetBuilder" Deploy.NoParameters |> ignore)
 
 Target.create "Run" (fun _ ->
     run dotnet [ "build" ] sharedPath

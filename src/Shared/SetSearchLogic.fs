@@ -34,6 +34,7 @@ let armorSkillContribution skills decorations remainingSkillNeed decorationReach
 
     armorContribution + decoContribution
 
+
 let calculateReachOfChosenSet skills decorations chosenSet charms armorByType remainingSkillNeed = 
     let getReachOfBestPiece armorType = 
       
@@ -57,7 +58,6 @@ let calculateReachOfChosenSet skills decorations chosenSet charms armorByType re
       |> asCounts
       |> (optimalDecorationReach skills decorations remainingSkillNeed)
 
-    printfn "BestUnassignedReach: %i\t CharmReach: %i\t AssignedArmorUnassignedDecorationsReach: %i" bestUnassignedReach charmReach assignedArmorUnassignedDecorationsReach
     bestUnassignedReach + charmReach + assignedArmorUnassignedDecorationsReach
 
 let getUnassignedSlots accumulatedSet = 
@@ -262,36 +262,26 @@ let rec assignArmor3'
       let remainingSkillNeed = remainingSkillNeed skills accumulatedSet requestedSkills
 
       let optimalDecorationReach' = memoize optimalDecorationReach skills decorations remainingSkillNeed
-      printfn "Sorting Armor"
       let armorByType = armorByType |> Map.map (fun key armorPieces -> armorPieces |> List.sortByDescending (armorSkillContribution skills decorations remainingSkillNeed simplisticReachHeuristic))
-      printfn "Sorting Charms"
       let charms = charms |> List.sortByDescending (charmSkillContribution skills remainingSkillNeed)
-      printfn "ChosenSet: %A" accumulatedSet
       let distance = remainingSkillNeed |> distance
       let reach = calculateReachOfChosenSet skills decorations accumulatedSet charms armorByType remainingSkillNeed 
 
       let tryRewindSet () = 
         match accumulatedSet |> tryRemoveLastAssignment fixedSet with
         | Some rewoundSet ->
-          printfn "Rewinding!"
           assignArmor3' skills fixedSet decorations requestedSkills charms armorByType rewoundSet
         | None -> 
-          printfn "Can't rewind!"
           None
 
-      printfn "Distance: %i \tReach %i" distance reach
       match tryAssignNext skills remainingSkillNeed accumulatedSet armorByType charms decorations with
       | _ when distance > reach -> 
-        printfn "Distance > Reach!" 
         tryRewindSet ()
       | None -> 
-        printfn "No Matches!"
         tryRewindSet ()
       | Some (updatedSet, remainingArmor, remainingCharms) when updatedSet |> isCompleteSet skills requestedSkills -> 
-        printfn "Complete Set Found!"
         Some (updatedSet, remainingArmor, remainingCharms)
       | Some (updatedSet, remainingArmor, remainingCharms) -> 
-        printfn "Step achieved!"
         assignArmor3' skills fixedSet decorations requestedSkills remainingCharms remainingArmor updatedSet
 
 
@@ -309,7 +299,6 @@ let assignArmor3
     // Iterate on armor assignments for each of these subsets
 
     let rec assignArmor3outer accumulatedSets fixedSet workingSet' armor' charms' = 
-      printfn "Finding Armor"
       match assignArmor3' skills chosenSet decorations requestedSkills charms' armor' workingSet' with
       | Some (finishedSet, remainingArmor, remainingCharms) when accumulatedSets |> List.length >= 9 ->
         finishedSet :: accumulatedSets
@@ -321,7 +310,6 @@ let assignArmor3
         | None -> accumulatedSets
       | None -> accumulatedSets
 
-    printfn "Starting Search"
     assignArmor3outer [] chosenSet chosenSet armorByType charms
          
 

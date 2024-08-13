@@ -252,7 +252,7 @@ let update msg (model: Model) =
         { model with ChosenSet = set }, Cmd.none
     | UpdateSkillList list ->
         do SkillList.storeToWebStorage list
-        { model with SkillList = list }, Cmd.none
+        { model with SkillList = list |> (fun (SkillList sl) -> SkillList (sl |> List.sort)) }, Cmd.none
     | FindMatchingSet requestedSkills ->
         match model.GameData, model.ChosenSet.Weapon with
         | PartialDeferred.Success gameData, Some weapon ->

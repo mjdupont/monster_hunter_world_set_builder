@@ -7,6 +7,10 @@ open GameDataTypes
 open System.Text.RegularExpressions
 open Helpers
 
+module Resources = 
+  let decorationImageRegexPath = "/resources/decoration_image_regex.txt"
+  let decorationHtm = "/resources/decorations.htm"
+
 [<RequireQualifiedAccess>]
 module InferredTypes =
 
@@ -115,11 +119,11 @@ module InferredTypes =
         let getIconsFromHtml: Async<(string * string) list> = async {
             let htmlRegex =
                 Regex(
-                    System.IO.File.ReadAllLines("../../resources/decoration_image_regex.txt")
+                    System.IO.File.ReadAllLines(System.IO.Path.Join [| System.Environment.CurrentDirectory; Resources.decorationImageRegexPath |])
                     |> String.concat ""
                 )
 
-            let htmlLines = System.IO.File.ReadAllLines "../../resources/decorations.htm"
+            let htmlLines = System.IO.File.ReadAllLines (System.IO.Path.Join [| System.Environment.CurrentDirectory; Resources.decorationHtm |])
             let htmlLines = Regex.Split(htmlLines |> String.concat "\n", "<td>")
 
             let matches =
