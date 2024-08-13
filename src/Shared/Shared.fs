@@ -1,7 +1,7 @@
 namespace Shared
 
 open System
-open DataTypes
+open GameDataTypes
 
 
 module Route =

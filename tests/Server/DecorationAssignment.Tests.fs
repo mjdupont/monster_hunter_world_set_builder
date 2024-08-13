@@ -2,7 +2,7 @@ module DecorationAssignment.Tests
 
 open Shared
 open SetSearchLogic
-open DataTypes
+open GameDataTypes
 open Helpers
 open Server
 open DataAccess
@@ -39,257 +39,11 @@ let stringTraverse elements name strings =
 let threeSeconds () =
     Async.Sleep(3000) |> Async.RunSynchronously
 
-
 let decorationAssignment =
     let skillNames, skills = InferredTypes.Skill.loadSkills |> Async.RunSynchronously
 
     let decorations =
         InferredTypes.Decoration.loadDecorations skillNames |> Async.RunSynchronously
-
-    testList "DecorationAssignment" [
-        testCase "Matches SkillRanks to Skills"
-        <| fun _ ->
-            let allSkillRanksFromDecos =
-                decorations |> List.map (fun deco -> deco.Skills |> List.ofArray) |> List.concat
-
-            for skill in skills do
-                let matchingSkills =
-                    allSkillRanksFromDecos |> List.filter (fun sr -> skillRankOfSkill skill sr)
-
-                Expect.isTrue
-                    (Set.isSubset (set matchingSkills) (set skill.Ranks))
-                    $"Matching SkillRanks for {skill.Name} must be in the set of SkillRanks in {skill.Name}"
-
-            for decoration in decorations do
-                for skillRank in decoration.Skills do
-                    let matchingSkill =
-                        skills
-                        |> List.filter (fun skill -> skillRankOfSkill skill skillRank)
-                        |> List.tryExactlyOne
-
-                    Expect.isSome matchingSkill $"All SkillRanks in {decoration.Name} have a corresponding skill."
-
-
-
-        testCase "Can detect if a decoration contains, or does not contain, a given skill"
-        <| fun _ ->
-            let decorationsWithoutOtherSkills =
-                [
-                    "Botany Jewel 1" // One Skill
-                    "Attack Jewel+ 4" // One Skill, Rank 2
-                    "Hard Defense Jewel 4" // One Skill, Rank 3
-                ]
-                |> stringMatch decorations (fun deco -> deco.Name)
-
-            let decorationsWithOtherSkills =
-                [
-                    "Guardian/Expert Jewel 4" // Two Skills
-                ]
-                |> stringMatch decorations (fun deco -> deco.Name)
-
-            let decorationsUnderTest =
-                decorationsWithoutOtherSkills @ decorationsWithOtherSkills
-
-            let expectedSkills =
-                [
-                    [ "Botanist" ]
-                    [ "Attack Boost" ]
-                    [ "Defense Boost" ]
-                    [ "Offensive Guard"; "Critical Eye" ]
-                ]
-                |> stringTraverse skills (fun skill -> skill.Name)
-
-            let expectedOtherSkills = [ false; false; false; true ]
-
-            let notExpectedSkills =
-                [ "Clutch Claw Boost"; "Honey Hunter" ]
-                |> List.map (fun skillName ->
-                    skills
-                    |> List.filter (fun skill -> skill.Name = skillName)
-                    |> List.tryExactlyOne)
-
-            Expect.all notExpectedSkills Option.isSome "All specified not expected skill results were found"
-            let notExpectedSkills = notExpectedSkills |> List.choose id
-
-            for deco, skillList, expectOthers in (List.zip3 decorationsUnderTest expectedSkills expectedOtherSkills) do
-                for skill in skillList do
-                    Expect.isTrue (deco |> decoContainsSkill skill) $"{deco.Name} should contain {skill.Name}"
-
-                    Expect.equal
-                        (deco |> decoContainsOtherSkill skill)
-                        expectOthers
-                        $"{deco.Name} having other skills should be {expectOthers}"
-
-                for skill in notExpectedSkills do
-                    Expect.isFalse (deco |> decoContainsSkill skill) $"{deco.Name} should not contain {skill.Name}"
-
-                    Expect.isTrue
-                        (deco |> decoContainsOtherSkill skill)
-                        $"{deco.Name} should have a different skill from {skill.Name}"
-
-
-
-        testCase "Can identify level of skill in decoration"
-        <| fun _ ->
-
-            let decorationsUnderTest =
-                [
-                    "Botany Jewel 1" // One Skill
-                    "Attack Jewel+ 4" // One Skill, Rank 2
-                    "Hard Defense Jewel 4" // One Skill, Rank 3
-                    "Guardian/Expert Jewel 4"
-                ]
-                |> stringMatch decorations (fun deco -> deco.Name)
-
-            let expectedSkills =
-                [
-                    [ "Botanist" ]
-                    [ "Attack Boost" ]
-                    [ "Defense Boost" ]
-                    [ "Offensive Guard"; "Critical Eye" ]
-                ]
-                |> stringTraverse skills (fun skill -> skill.Name)
-
-            let expectedSkillLevels = [ [ 1 ]; [ 2 ]; [ 3 ]; [ 1; 1 ] ]
-
-            let notExpectedSkill =
-                [ "Clutch Claw Boost" ]
-                |> stringMatch skills (fun skill -> skill.Name)
-                |> List.head
-
-            for deco, skillList, expectedLevel in (List.zip3 decorationsUnderTest expectedSkills expectedSkillLevels) do
-                for skill, level in List.zip skillList expectedLevel do
-                    Expect.equal (decoSkillLevel skill deco) (Some level) $"{deco.Name} should have skill level {level}"
-
-                    Expect.isNone
-                        (decoSkillLevel notExpectedSkill deco)
-                        $"{deco.Name} should have no skill level for unexpected skill {notExpectedSkill.Name}"
-
-
-
-        testCase "Can Identify and select singleton decorations"
-        <| fun _ ->
-            let skillsToTest =
-                [
-                    "Health Boost" // Only Size 1
-                    "Palico Rally" // Size 1 and +
-                    "Divine Blessing" // Size 1 and Mixed
-                    "Defense Boost" // Size 1, +, and Hard
-                    "Attack Boost" // Size 1, +, and Mixed
-                    "Guard Up" // Only Size 2
-                    "Weakness Exploit" // Size 2 and Mixed
-                    "Agitator" // Size 2, +, and Mixed
-                    "Clutch Claw Boost" // Only Size 3
-                    "Handicraft" // Size 3, +, and Mixed
-                ]
-                |> stringMatch skills (fun skill -> skill.Name)
-
-            let expectedSingletons =
-                [
-                    "Vitality Jewel 1"
-                    "Meowster Jewel 1"
-                    "Protection Jewel 1"
-                    "Defense Jewel 1"
-                    "Attack Jewel 1"
-                    "Shield Jewel 2"
-                    "Tenderizer Jewel 2"
-                    "Challenger Jewel 2"
-                    "Shaver Jewel 3"
-                    "Handicraft Jewel 3"
-                ]
-                |> stringMatch decorations (fun decoration -> decoration.Name)
-
-            for skill, decoration in List.zip skillsToTest expectedSingletons do
-                Expect.equal
-                    (singletonDecoration decorations skill)
-                    (Some decoration)
-                    $"The singleton decoration for {skill.Name} should be {decoration.Name}"
-
-            let skillsToTest =
-                [
-                    "Health Boost" // Size 1
-                    "Defense Boost" // Size 1, +, and Hard
-                    "Attack Boost" // Size 1, +, and Mixed
-                    "Agitator" // Size 2, +, and Mixed
-                    "Handicraft" // Size 3, +, and Mixed
-                ]
-                |> stringMatch skills (fun skill -> skill.Name)
-
-            let notSingletons =
-                [
-                    [ "Meowster Jewel 1" ]
-                    [ "Defense Jewel+ 4"; "Hard Defense Jewel 4" ]
-                    [ "Attack Jewel+ 4"; "Guardian/Attack Jewel 4"; "Guardian Jewel 2" ]
-                    [ "Challenger Jewel+ 4"; "Challenger/Protection Jewel 4" ]
-                    [ "Handicraft Jewel+ 4"; "Handicraft/Evasion Jewel 4" ]
-                ]
-                |> stringTraverse decorations (fun deco -> deco.Name)
-
-            for skill, notSingleton in List.zip skillsToTest notSingletons do
-                for decoration in notSingleton do
-                    Expect.isFalse
-                        (isSingletonDecoration skill decoration)
-                        $"{decoration.Name} should not be the singleton for {skill.Name}"
-
-
-        testCase "Can Identify slot sizes"
-        <| fun _ ->
-
-            let skillsToTest =
-                [
-                    "Effluvial Expert"
-                    "Honey Hunter" // No slot
-                    "Attack Boost"
-                    "Defense Boost"
-                    "Paralysis Resistance" // Size 1
-                    "Weakness Exploit"
-                    "Constitution"
-                    "Guard Up" // Size 2
-                    "Clutch Claw Boost"
-                    "Handicraft"
-                    "Free Elem/Ammo Up" // Size 3
-                    "Inheritance"
-                    "Joy's Gift" // Set skills (No slot)
-                ]
-                |> stringMatch skills (fun skill -> skill.Name)
-
-            let results = [ for skill in skillsToTest -> skill |> decorationSlotSize decorations ]
-
-            let expectedResults =
-                [
-                    None
-                    None
-                    Some 1
-                    Some 1
-                    Some 1
-                    Some 2
-                    Some 2
-                    Some 2
-                    Some 3
-                    Some 3
-                    Some 3
-                    None
-                    None
-                ]
-                |> List.map (Option.map Slot)
-
-            Expect.equal
-                results
-                expectedResults
-                "Skills should correctly identify the slot size of their singleton decoration if it exists"
-    ]
-
-let decorationAssignmentFull =
-    let skillNames, skills = InferredTypes.Skill.loadSkills |> Async.RunSynchronously
-
-    let decorations =
-        InferredTypes.Decoration.loadDecorations skillNames |> Async.RunSynchronously
-
-    let skillCaps =
-        skills
-        |> List.map (fun skill -> skill, (skill.Ranks |> Array.map (fun sr -> sr.Level) |> Array.max))
-        |> Map.ofList
-
 
     testList "DecorationAssignmentFull" [
         testCase "Can find a correct mapping from skills to decorations, 4* Only"
@@ -314,7 +68,7 @@ let decorationAssignmentFull =
 
             let slots = [ Slot 4; Slot 4; Slot 4 ] |> List.countBy id
 
-            let assignment = assignDecorations skills requestedSkills slots availableDecorations
+            let assignment = findDecorationsSatisfyingSkills skills requestedSkills slots availableDecorations
 
             let assignedDecorations =
                 assignment
@@ -360,7 +114,7 @@ let decorationAssignmentFull =
             let slots =
                 [ Slot 4; Slot 4; Slot 4; Slot 4; Slot 2; Slot 1; Slot 1 ] |> List.countBy id
 
-            let assignment = assignDecorations skills requestedSkills slots availableDecorations
+            let assignment = findDecorationsSatisfyingSkills skills requestedSkills slots availableDecorations
 
             let assignedDecorations =
                 assignment
@@ -413,7 +167,7 @@ let decorationAssignmentFull =
 
             let slots = [ Slot 4; Slot 4; Slot 4; Slot 1; Slot 1 ] |> List.countBy id
 
-            let assignment = assignDecorations skills requestedSkills slots availableDecorations
+            let assignment = findDecorationsSatisfyingSkills skills requestedSkills slots availableDecorations
 
             let expectedAssignment =
                 [
@@ -465,7 +219,7 @@ let decorationAssignmentFull =
 
             let slots = [ Slot 4; Slot 4; Slot 4; Slot 4; Slot 1 ] |> List.countBy id
 
-            let assignment = assignDecorations skills requestedSkills slots availableDecorations
+            let assignment = findDecorationsSatisfyingSkills skills requestedSkills slots availableDecorations
 
             let expectedAssignment =
                 [
@@ -515,7 +269,7 @@ let decorationAssignmentFull =
             let slots =
                 [ Slot 4; Slot 4; Slot 4; Slot 4; Slot 4; Slot 4; Slot 1 ] |> List.countBy id
 
-            let assignment = assignDecorations skills requestedSkills slots availableDecorations
+            let assignment = findDecorationsSatisfyingSkills skills requestedSkills slots availableDecorations
 
             let expectedAssignment =
                 [
@@ -572,7 +326,7 @@ let decorationAssignmentFull =
                     (decoration
                      |> containedSkills skills
                      |> List.map (fun (skill, level) ->
-                         skillCaps
+                         skillCaps skills
                          |> Map.tryFind skill
                          |> Option.defaultValue 0
                          |> (fun x -> int (ceil (float x) / (float level))))
@@ -580,33 +334,24 @@ let decorationAssignmentFull =
 
             let slots =
                 [
-                    Slot 4
-                    Slot 4
-                    Slot 3
-                    Slot 2
-                    Slot 2
-                    Slot 4
-                    Slot 4
-                    Slot 4
-                    Slot 4
-                    Slot 4
-                    Slot 4
-                    Slot 4
-                    Slot 3
-                    Slot 3
-                    Slot 4
-                    Slot 2
+                    [ Slot 4; Slot 4 ]
+                    [ Slot 3; Slot 2; Slot 2 ]
+                    [ Slot 4; Slot 4; Slot 4 ]
+                    [ Slot 4; Slot 4; Slot 4 ]
+                    [ Slot 4; Slot 3; Slot 3 ]
+                    [ Slot 4; Slot 2 ]
                 ]
+                |> List.concat
                 |> List.countBy id
 
             let runAssignment () =
-                let _ = assignDecorations skills requestedSkills slots allDecorations
+                let _ = findDecorationsSatisfyingSkills skills requestedSkills slots allDecorations
                 ()
 
             let threeSeconds () =
                 Async.Sleep(3000) |> Async.RunSynchronously
 
-            let assignment = assignDecorations skills requestedSkills slots allDecorations
+            let assignment = findDecorationsSatisfyingSkills skills requestedSkills slots allDecorations
 
 
             Expect.isFasterThan runAssignment threeSeconds "Took longer than three seconds to assign decorations"
@@ -645,7 +390,7 @@ let decorationAssignmentFull =
                     (decoration
                      |> containedSkills skills
                      |> List.map (fun (skill, level) ->
-                         skillCaps
+                         skillCaps skills
                          |> Map.tryFind skill
                          |> Option.defaultValue 0
                          |> (fun x -> int (ceil (float x) / (float level))))
@@ -653,30 +398,21 @@ let decorationAssignmentFull =
 
             let slots =
                 [
-                    Slot 4
-                    Slot 4
-                    Slot 3
-                    Slot 2
-                    Slot 2
-                    Slot 4
-                    Slot 4
-                    Slot 4
-                    Slot 4
-                    Slot 4
-                    Slot 4
-                    Slot 4
-                    Slot 3
-                    Slot 3
-                    Slot 4
-                    Slot 2
+                    [ Slot 4; Slot 4 ]
+                    [ Slot 3; Slot 2; Slot 2 ]
+                    [ Slot 4; Slot 4; Slot 4 ]
+                    [ Slot 4; Slot 4; Slot 4 ]
+                    [ Slot 4; Slot 3; Slot 3 ]
+                    [ Slot 4; Slot 2 ]
                 ]
+                |> List.concat
                 |> List.countBy id
 
             let runAssignment () =
-                let _ = assignDecorations skills requestedSkills slots allDecorations
+                let _ = findDecorationsSatisfyingSkills skills requestedSkills slots allDecorations
                 ()
 
-            let assignment = assignDecorations skills requestedSkills slots allDecorations
+            let assignment = findDecorationsSatisfyingSkills skills requestedSkills slots allDecorations
 
 
             Expect.isFasterThan runAssignment threeSeconds "Took longer than three seconds to assign decorations"
@@ -738,7 +474,7 @@ let decorationAssignmentFull =
                     (decoration
                      |> containedSkills skills
                      |> List.map (fun (skill, level) ->
-                         skillCaps
+                         skillCaps skills
                          |> Map.tryFind skill
                          |> Option.defaultValue 0
                          |> (fun x -> int (ceil (float x) / (float level))))
@@ -746,30 +482,67 @@ let decorationAssignmentFull =
 
             let slots =
                 [
-                    Slot 4
-                    Slot 4
-                    Slot 3
-                    Slot 2
-                    Slot 2
-                    Slot 4
-                    Slot 4
-                    Slot 4
-                    Slot 4
-                    Slot 4
-                    Slot 4
-                    Slot 4
-                    Slot 3
-                    Slot 3
-                    Slot 4
-                    Slot 2
+                    [ Slot 4; Slot 4 ]
+                    [ Slot 3; Slot 2; Slot 2 ]
+                    [ Slot 4; Slot 4; Slot 4 ]
+                    [ Slot 4; Slot 4; Slot 4 ]
+                    [ Slot 4; Slot 3; Slot 3 ]
+                    [ Slot 4; Slot 2 ]
                 ]
+                |> List.concat
                 |> List.countBy id
 
             let runAssignment () =
-                let _ = assignDecorations skills requestedSkills slots allDecorations
+                let _ = findDecorationsSatisfyingSkills skills requestedSkills slots allDecorations
                 ()
 
-            let assignment = assignDecorations skills requestedSkills slots allDecorations
+            let assignment = findDecorationsSatisfyingSkills skills requestedSkills slots allDecorations
+
+            Expect.isFasterThan runAssignment threeSeconds "Took longer than three seconds to assign decorations"
+            Expect.isSome assignment "Failed to find a decoration assignment"
+
+
+        testCase "Regression test from example"
+        <| fun _ ->
+
+            let expectedSkills = [
+
+                3, "Critical Eye"
+                3, "Guard"
+                7, "Agitator"
+            ]
+
+            let counts, names = expectedSkills |> List.unzip
+            let matchedSkills = names |> stringMatch skills (fun s -> s.Name)
+
+            let requestedSkills = List.zip matchedSkills counts
+
+            let allDecorations =
+                decorations
+                |> List.map (fun decoration ->
+                    decoration,
+                    (decoration
+                     |> containedSkills skills
+                     |> List.map (fun (skill, level) ->
+                         skillCaps skills
+                         |> Map.tryFind skill
+                         |> Option.defaultValue 0
+                         |> (fun x -> int (ceil (float x) / (float level))))
+                     |> List.min))
+
+            let slots =
+                [
+                  Slot 4, 5;
+                  Slot 1, 2;
+                  Slot 2, 2
+                ]
+
+
+            let runAssignment () =
+                let _ = findDecorationsSatisfyingSkills skills requestedSkills slots allDecorations
+                ()
+
+            let assignment = findDecorationsSatisfyingSkills skills requestedSkills slots allDecorations
 
             Expect.isFasterThan runAssignment threeSeconds "Took longer than three seconds to assign decorations"
             Expect.isSome assignment "Failed to find a decoration assignment"

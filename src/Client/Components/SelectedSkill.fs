@@ -3,7 +3,7 @@ namespace Components
 module SelectedSkill =
     open Feliz
 
-    open DataTypes
+    open GameDataTypes
 
 
 
@@ -16,7 +16,6 @@ module SelectedSkill =
                 RemoveSkillCallBack: Skill -> unit
             |})
         =
-        printfn "%A" (props.Skill, props.Rank)
 
         Html.div [
             prop.className "flex flex-row gap-8"

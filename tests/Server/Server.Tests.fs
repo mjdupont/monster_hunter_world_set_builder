@@ -28,9 +28,10 @@ let all =
     testList "All" [
         Shared.Tests.shared
         server
-        SetSearchLogic.Tests.setSearchLogic
+        GameDataTypes.Tests.gameDataTypes
         DecorationAssignment.Tests.decorationAssignment
-        DecorationAssignment.Tests.decorationAssignmentFull
+        SetSearchLogic.Tests.setSearchLogic
+        
     ]
 
 let writeData () =

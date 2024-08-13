@@ -3,6 +3,16 @@ namespace Helpers
 module Prelude =
     let flip f a b = f b a
 
+    // let memoizeConcurrent f = 
+    //   let cache = System.Collections.Concurrent.ConcurrentDictionary()
+    //   fun x -> cache.GetOrAdd(x, lazy f x).Value
+
+    let memoize f =
+      let cache = new System.Collections.Generic.Dictionary<_,_>()
+      fun x ->
+        match cache.TryGetValue x with
+        | true, result -> result
+        | _ -> let result = f x in cache.Add(x, result); result
 
 module Async =
     let map f computation =
@@ -10,6 +20,11 @@ module Async =
 
 
 module List =
+
+    let tryMax xs = 
+      match xs with 
+      | [] -> None
+      | _ -> Some (List.max xs)
 
     let join (on: 'x -> 'y -> bool) (xs: 'x List) (ys: 'y List) =
         let pairs = ys |> List.allPairs xs

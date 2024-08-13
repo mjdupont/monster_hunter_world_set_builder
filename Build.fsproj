@@ -6,7 +6,6 @@
     <AutoGenerateBindingRedirects>true</AutoGenerateBindingRedirects>
   </PropertyGroup>
   <ItemGroup>
-    <Compile Include="src\Shared\DataTypes.fs" />
     <Compile Include="Helpers.fs" />
     <Compile Include="Build.fs" />
     <None Include="paket.dependencies" />

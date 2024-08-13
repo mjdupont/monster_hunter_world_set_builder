@@ -4,7 +4,7 @@ module DecorationSizeSelector =
     open Feliz
 
     open ModelData
-    open DataTypes
+    open GameDataTypes
     open HelperFunctions
 
 
@@ -31,7 +31,7 @@ module DecorationSizeSelector =
                         prop.className "decotextwrap"
                         prop.style [ style.textAlign.center ]
                         prop.children [ Html.text "--" ]
-                        prop.onClick (fun me -> None |> props.ChosenDecoSlot.Update)
+                        prop.onClick (fun _me -> None |> props.ChosenDecoSlot.Update)
                     ]
                 ]
             ]
@@ -53,7 +53,7 @@ module DecorationSizeSelector =
                     ]
                     Html.img [
                         prop.src (sprintf "images\\empty_decoration_level_%i.png" size)
-                        prop.onClick (fun me -> (Some(Slot size, None)) |> props.ChosenDecoSlot.Update)
+                        prop.onClick (fun _me -> (Some(Slot size, None)) |> props.ChosenDecoSlot.Update)
                     ]
                 ]
             ]

@@ -1,8 +1,12 @@
+//////////////////////////////////////////////////////////////////
+///// Optional Extension Methods for src/Shared/ModelData.fs /////
+//////////////////////////////////////////////////////////////////
+
 module ModelData
 
-open DataTypes
+open GameDataTypes
+open ModelData
 
-type DecorationSlot = (Slot * Decoration option) option
 type private StoredDecorationSlot = (Slot * int option) option
 
 module DecorationSlot =
@@ -26,62 +30,16 @@ module DecorationSlot =
         | Some(slot, None) -> Some(slot, None)
         | _ -> None
 
-    let skillsFromDecorationSlot (decorationSlot: DecorationSlot) =
-        decorationSlot
-        |> Option.bind snd
-        |> Option.map (fun deco -> deco.Skills)
-        |> Option.defaultValue [||]
 
 
-type DecorationSlotsPosition =
-    | First
-    | Second
-    | Third
+type internal StoredDecorationSlots = {
+    First: StoredDecorationSlot
+    Second: StoredDecorationSlot
+    Third: StoredDecorationSlot
+}
 
-type DecorationSlots = {
-    First: DecorationSlot
-    Second: DecorationSlot
-    Third: DecorationSlot
-} with
-
-    static member Empty = {
-        First = None
-        Second = None
-        Third = None
-    }
-
-    static member FromSlots(slots: Slot array) =
-        let (slots: (Slot * Decoration option) option array) =
-            slots
-            |> Array.map (function
-                | Slot n when [ 1; 2; 3; 4 ] |> List.contains n -> Some(Slot n, None)
-                | _ -> None)
-
-        match slots with
-        | [| first |] -> {
-            DecorationSlots.Empty with
-                First = first
-          }
-        | [| first; second |] -> {
-            DecorationSlots.Empty with
-                First = first
-                Second = second
-          }
-        | [| first; second; third |] -> {
-            DecorationSlots.Empty with
-                First = first
-                Second = second
-                Third = third
-          }
-        | _ -> DecorationSlots.Empty
-
-    member this.SlotFromPosition position =
-        match position with
-        | First -> this.First
-        | Second -> this.Second
-        | Third -> this.Third
-
-    static member internal serializeDecorationSlotsToStorage decorationSlots : StoredDecorationSlots = {
+type DecorationSlots with
+    static member internal serializeDecorationSlotsToStorage(decorationSlots: DecorationSlots) : StoredDecorationSlots = {
         First = decorationSlots.First |> DecorationSlot.serializeDecorationSlotToStorage
         Second = decorationSlots.Second |> DecorationSlot.serializeDecorationSlotToStorage
         Third = decorationSlots.Third |> DecorationSlot.serializeDecorationSlotToStorage
@@ -103,27 +61,6 @@ type DecorationSlots = {
                 |> (DecorationSlot.deserializeDecorationSlotFromStorage decorations)
         }
 
-    static member skillsfromDecorationSlots(decorationSlots: DecorationSlots) =
-        [|
-            decorationSlots.First |> DecorationSlot.skillsFromDecorationSlot
-            decorationSlots.Second |> DecorationSlot.skillsFromDecorationSlot
-            decorationSlots.Third |> DecorationSlot.skillsFromDecorationSlot
-        |]
-        |> Array.concat
-
-and internal StoredDecorationSlots = {
-    First: StoredDecorationSlot
-    Second: StoredDecorationSlot
-    Third: StoredDecorationSlot
-}
-
-// type StoredCustomWeapon =
-//   { Attack: int
-//   ; Id: int
-//   ; Name: string
-//   ; Rarity: int
-//   ; Slots: Slot[]
-//   }
 
 
 type StoredWeapon =
@@ -131,46 +68,22 @@ type StoredWeapon =
     | Custom of Weapon
 
 
-type ChosenSet = {
-    Weapon: (Weapon * DecorationSlots) option
-    Headgear: (Armor * DecorationSlots) option
-    Chest: (Armor * DecorationSlots) option
-    Gloves: (Armor * DecorationSlots) option
-    Waist: (Armor * DecorationSlots) option
-    Legs: (Armor * DecorationSlots) option
+
+type private StoredChosenSet = {
+    Weapon: (StoredWeapon * StoredDecorationSlots) option
+    Headgear: (int * StoredDecorationSlots) option
+    Chest: (int * StoredDecorationSlots) option
+    Gloves: (int * StoredDecorationSlots) option
+    Waist: (int * StoredDecorationSlots) option
+    Legs: (int * StoredDecorationSlots) option
     //Equipment_1: (Equipment * DecorationSlots)
     //Equipment_2: (Equipment * DecorationSlots)
-    Charm: (Charm * CharmRank) option
-} with
+    Charm: (int * int) option
+}
 
-    static member Default = {
-        Weapon = None
-        Headgear = None
-        Chest = None
-        Gloves = None
-        Waist = None
-        Legs = None
-        Charm = None
-    }
 
-    static member setArmor armorType armor (chosenSet: ChosenSet) =
-        match armorType with
-        | ArmorType.Headgear -> { chosenSet with Headgear = armor }
-        | ArmorType.Gloves -> { chosenSet with Gloves = armor }
-        | ArmorType.Chest -> { chosenSet with Chest = armor }
-        | ArmorType.Waist -> { chosenSet with Waist = armor }
-        | ArmorType.Legs -> { chosenSet with Legs = armor }
 
-    static member getPiece(armorType, (chosenSet: ChosenSet)) =
-        match armorType with
-        | Headgear -> chosenSet.Headgear
-        | Chest -> chosenSet.Chest
-        | Gloves -> chosenSet.Gloves
-        | Waist -> chosenSet.Waist
-        | Legs -> chosenSet.Legs
-
-    member this.getPiece armorType = ChosenSet.getPiece (armorType, this)
-
+type ChosenSet with
     static member serialize(chosenSet: ChosenSet) : string =
         let serializeCustomWeapon (slots: DecorationSlots) (weapon: Weapon) =
             // Note that Slot 0 would normally not occur in a weapon (or armor) struct
@@ -300,15 +213,17 @@ type ChosenSet = {
             |> Option.bind (bindCharmRank level)
 
         storedForm
-        |> Result.map (fun storedForm -> {
-            Weapon = storedForm.Weapon |> Option.bind lookupWeapon
-            Headgear = storedForm.Headgear |> Option.bind lookupArmor
-            Chest = storedForm.Chest |> Option.bind lookupArmor
-            Gloves = storedForm.Gloves |> Option.bind lookupArmor
-            Waist = storedForm.Waist |> Option.bind lookupArmor
-            Legs = storedForm.Legs |> Option.bind lookupArmor
-            Charm = storedForm.Charm |> Option.bind lookupCharm
-        })
+        |> Result.map (fun storedForm ->
+            ({
+                Weapon = storedForm.Weapon |> Option.bind lookupWeapon
+                Headgear = storedForm.Headgear |> Option.bind lookupArmor
+                Chest = storedForm.Chest |> Option.bind lookupArmor
+                Gloves = storedForm.Gloves |> Option.bind lookupArmor
+                Waist = storedForm.Waist |> Option.bind lookupArmor
+                Legs = storedForm.Legs |> Option.bind lookupArmor
+                Charm = storedForm.Charm |> Option.bind lookupCharm
+            }
+            : ChosenSet))
         |> (function
         | Ok s -> Some s
         | Error _ -> None)
@@ -327,89 +242,41 @@ type ChosenSet = {
         Browser.WebStorage.sessionStorage.getItem ("chosenSet")
         |> ChosenSet.deserialize decorations weapons armor charms
 
-    static member skillsFromArmor((armor: Armor), decorationSlots) =
-        [| decorationSlots |> DecorationSlots.skillsfromDecorationSlots; armor.Skills |]
-        |> Array.concat
 
-    static member armorSetBonuses (armorSets: ArmorSet seq) (chosenSet: ChosenSet) =
+type SkillList = 
+  SkillList of (Skill * int) list
 
-        let tryFindMatchingArmorSet setId =
-            armorSets |> Seq.filter (fun aset -> aset.Id = setId) |> Seq.tryExactlyOne
+type StoredSkillList = 
+  (int * int) list
 
-        let tryFindMatchingArmorSetBonus setId =
-            let matchingArmorSet = tryFindMatchingArmorSet setId
-            matchingArmorSet |> Option.bind (fun matchingArmorSet -> matchingArmorSet.Bonus)
+type SkillList with
+  static member serialize(SkillList skillList) : string = 
+    [ for (skill, count) in skillList ->
+      skill.Id, count ] |> Thoth.Json.Encode.Auto.toString<StoredSkillList>
 
-        let armorSetBonuses =
-            [|
-                chosenSet.Headgear
-                chosenSet.Chest
-                chosenSet.Gloves
-                chosenSet.Waist
-                chosenSet.Legs
-            |]
-            |> Array.choose id
-            |> Array.map fst
-            |> Array.choose (fun armor -> armor.ArmorSet |> tryFindMatchingArmorSetBonus)
+  static member deserialize(skills:Skill list) skillListString : SkillList option =
+    let maybeRawList = Thoth.Json.Decode.Auto.fromString<StoredSkillList> skillListString
+    let maybeTranslatedList = 
+      maybeRawList |> Result.map (fun rawList ->
+        SkillList 
+          [ for skId, count in rawList do
+            let maybePair = skills |> List.filter (fun skill -> skill.Id = skId) |> List.tryExactlyOne |> Option.map (fun skill -> skill, count)
+            match maybePair with
+            | Some pair -> yield pair
+            | None -> 
+              printfn "No Skill was found for skill Id %i" skId
+          ] 
+      )
+    
+    match maybeTranslatedList with
+    | Ok list -> Some list
+    | Error _ -> None
+    
+  static member storeToWebStorage(SkillList skillList) =
+    let serialized = SkillList.serialize (SkillList skillList)
+    Browser.WebStorage.sessionStorage.setItem ("skillList", serialized)
 
-        let armorSetRanks =
-            armorSetBonuses
-            |> Array.groupBy id
-            |> Array.map (fun (a, b) -> a, b |> Array.length)
-            |> Array.map (fun (bonus, count) -> [|
-                for rank in bonus.Ranks |> Array.filter (fun r -> r.Pieces <= count) -> bonus, rank
-            |])
-            |> Array.concat
-
-        armorSetRanks
-
-    static member totalSkills(chosenSet: ChosenSet) =
-        let skillsFromArmor =
-            [|
-                chosenSet.Headgear
-                chosenSet.Chest
-                chosenSet.Gloves
-                chosenSet.Waist
-                chosenSet.Legs
-            |]
-            |> Array.choose (Option.map ChosenSet.skillsFromArmor)
-            |> Array.concat
-
-        let skillsFromCharm =
-            chosenSet.Charm
-            |> Option.map (fun (charm, charmRank) -> charmRank.Skills)
-            |> Option.defaultValue [||]
-
-        let skillsFromWeapon =
-            chosenSet.Weapon
-            |> Option.map (
-                (fun (weapon, slots) -> [| slots |> DecorationSlots.skillsfromDecorationSlots (*; weapon.Skills*) |])
-                >> Array.concat
-            )
-            |> Option.defaultValue [||]
-
-        [ skillsFromArmor; skillsFromCharm; skillsFromWeapon ] |> Array.concat
-
-
-
-and private StoredChosenSet = {
-    Weapon: (StoredWeapon * StoredDecorationSlots) option
-    Headgear: (int * StoredDecorationSlots) option
-    Chest: (int * StoredDecorationSlots) option
-    Gloves: (int * StoredDecorationSlots) option
-    Waist: (int * StoredDecorationSlots) option
-    Legs: (int * StoredDecorationSlots) option
-    //Equipment_1: (Equipment * DecorationSlots)
-    //Equipment_2: (Equipment * DecorationSlots)
-    Charm: (int * int) option
-}
-
-let accumulateSkills (skills: SkillRank array) =
-    skills
-    |> Array.groupBy (fun sr -> sr.Skill)
-    |> Array.map (fun (skill, items) ->
-        items
-        |> Array.reduce (fun skillRankState newSkillRank -> {
-            skillRankState with
-                Level = skillRankState.Level + newSkillRank.Level
-        }))
+  static member readFromWebStorage(skills: Skill list) =
+    Browser.WebStorage.sessionStorage.getItem ("skillList") 
+    |> SkillList.deserialize skills  
+    |> Option.defaultValue (SkillList [])

@@ -1,7 +1,7 @@
 module SetSearchLogic.Tests
 
 open Shared
-open DataTypes
+open GameDataTypes
 open Helpers.Constants
 open Server
 open DataAccess

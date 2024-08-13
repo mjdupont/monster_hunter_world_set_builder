@@ -1,73 +1,12 @@
 module DecorationAssignment
 
-open DataTypes
+open GameDataTypes
 open Helpers
 open FSharp.Core
 
-///
-/// Compares a SkillRank to a Skill to determine if the SkillRank is of the skill.
-/// Used due to SkillRank having Id and Skill, which are different, and confusing, and prone to bugs.
-///
-let skillRankOfSkill (skill: Skill) (sr: SkillRank) = sr.Skill = skill.Id
 
-///
-/// Returns the skills contained in a Decoration, along with their levels.
-///
-let containedSkills (skills: Skill list) (deco: Decoration) =
-    deco.Skills
-    |> Array.choose (fun decoSr ->
-        skills
-        |> List.filter (fun sk -> skillRankOfSkill sk decoSr)
-        |> List.tryExactlyOne
-        |> Option.map (fun sk -> sk, decoSr.Level))
-    |> List.ofArray
-
-///
-/// Check if a given decoration provides a given skill.
-///
-let decoContainsSkill (skill: Skill) (deco: Decoration) =
-    deco.Skills |> Array.filter (skillRankOfSkill skill) |> (not << Array.isEmpty)
-
-///
-/// Check if a given decoration has any skill that is not the provided skill.
-///
-let decoContainsOtherSkill (skill: Skill) (deco: Decoration) =
-    deco.Skills
-    |> Array.filter (not << (skillRankOfSkill skill))
-    |> (not << Array.isEmpty)
-
-///
-/// Calculates the level of a particular skill in a decoration. If the skill is not present, returns None.
-///
-let decoSkillLevel (skill: Skill) (deco: Decoration) =
-    deco.Skills
-    |> Array.filter (skillRankOfSkill skill)
-    |> Array.tryExactlyOne
-    |> Option.map (fun sr -> sr.Level)
-
-///
-/// Checks if the given decoration is a "singleton" - The decoration is not size 4, contains only 1 skill, and that skill is level 1.
-///
-let isSingletonDecoration skill decoration =
-    (decoContainsSkill skill decoration)
-    && (not (decoContainsOtherSkill skill decoration))
-    && (decoration |> decoSkillLevel skill) = Some 1
-
-///
-/// Finds the singleton decoration for a given skill in a list of decorations, if it exists.
-///
-let singletonDecoration decorations skill =
-    decorations |> List.filter (isSingletonDecoration skill) |> List.tryExactlyOne
-
-/// Calclulates the slot size of the singleton decoration of a given skill in a list of decorations.
-let decorationSlotSize decorations skill =
-    singletonDecoration decorations skill |> Option.map (fun deco -> Slot deco.Slot)
-
-
-
-
-let skillContribution skills remainingSkillNeed decoration =
-    let cSkills = decoration |> containedSkills skills
+let inline skillContribution skills remainingSkillNeed (skillSource: 'a when 'a: (member Skills: SkillRank array)) =
+    let cSkills = skillSource |> containedSkills skills
 
     let joined, _, _ =
         List.join (fun (rSkill, rLevel) (cSkill, cLevel) -> cSkill = rSkill) remainingSkillNeed cSkills
@@ -76,8 +15,12 @@ let skillContribution skills remainingSkillNeed decoration =
     |> List.map (fun ((_, rLevel), (_, cLevel)) -> min rLevel cLevel)
     |> List.sum
 
-let contributes (skills: Skill list) (remainingSkillNeed: (Skill * int) list) decoration =
-    skillContribution skills remainingSkillNeed decoration > 0
+let inline contributes
+    (skills: Skill list)
+    (remainingSkillNeed: (Skill * int) list)
+    (skillSource: 'a when 'a: (member Skills: SkillRank array))
+    =
+    skillContribution skills remainingSkillNeed skillSource > 0
 
 
 let validDecoration
@@ -111,38 +54,53 @@ let updateRemainingSkillNeed (skills: Skill list) (newDecoration: Decoration) (s
 
 
 
-let isHardSkill skills decorations skill =
-    decorations
-    |> List.filter (decoContainsSkill skill)
-    |> List.choose (
-        (containedSkills skills)
-        >> List.filter (fun (skill', level) -> skill = skill' && level = 3)
-        >> List.tryExactlyOne
-    )
-    |> List.tryExactlyOne
-    |> Option.isSome
+let optimalDecorationReach skills decorations requestedSkills decorationSlots =
+    let hardRequestedSkills =
+        requestedSkills
+        |> List.filter (fun (skill, count) -> skill |> (isHardSkill skills (decorations |> List.map fst)))
 
-let asCounts (xs: 'a list) = xs |> List.countBy id
+    let hardDecorations =
+        decorations
+        |> List.filter (fun (deco, count) -> validHardDecoration skills requestedSkills deco)
 
-let asItems (xs: ('a * int) list) = [
-    for x, count in xs do
-        for i in 1..count -> x
-]
+    let maxPossibleHardDecorations =
+        hardRequestedSkills
+        |> List.map (fun (skill, count) ->
+            skill,
+            min
+                (count / 3)
+                (hardDecorations
+                 |> List.filter (fun (deco, count) -> decoContainsSkill skill deco)
+                 |> List.tryExactlyOne
+                 |> Option.map snd
+                 |> Option.defaultValue 0))
+        |> List.map snd
+        |> List.sum
 
+    let contributionBySize =
+        function
+        | Slot 4, count ->
+            let maxPossibleHardDecos = (min maxPossibleHardDecorations count)
+            let otherSize4Decos = count - maxPossibleHardDecos
+            (maxPossibleHardDecos * 3) + (otherSize4Decos * 2)
+        | (_, n) -> n
 
-let assignDecorations
+    decorationSlots |> List.map contributionBySize |> List.sum
+
+let distance (requestedSkills : (Skill * int) list) = requestedSkills |> List.map snd |> List.sum
+
+let findDecorationsSatisfyingSkills
     (skills: Skill list)
     (requestedSkills: (Skill * int) list)
     (decorationSlots: (Slot * int) list)
     (decorations: (Decoration * int) list)
-    : (Slot * Decoration option) list option =
+    : (Slot * Decoration option) list option = 
 
-    //Assign decorations that aren't in paired decorations:
-    let rec assignDecorationsBFrec decorationAssignments (slots: (Slot * int) list) requestedSkills decorations =
+    let rec assignDecorationsDFS decorationAssignments (slots: (Slot * int) list) requestedSkills decorations =
         match requestedSkills, slots, decorations with
-        | [], _, _ -> Some decorationAssignments
+        | [], _, _ -> Some decorationAssignments  //Success/Exit Case
         | _, [], _
-        | _, _, [] -> None
+        | _, _, [] -> None 
         | requestedSkills, slots, decorations ->
             let contributions =
                 decorations
@@ -151,7 +109,7 @@ let assignDecorations
 
             let maxContribution = contributions |> List.map (fun (a, b, c) -> c) |> List.max
 
-            let reach =
+            let actualReachEstimate =
                 slots
                 |> List.map (function
                     | (Slot 4, n) -> maxContribution * n
@@ -160,7 +118,7 @@ let assignDecorations
 
             let distance = requestedSkills |> List.map snd |> List.sum
 
-            if reach < distance then
+            if actualReachEstimate < distance then
                 None
             else
                 let decorations =
@@ -219,7 +177,7 @@ let assignDecorations
                                     (chosenDecoration, nChosenDecorations - 1) :: remainingDecorations
 
                             return!
-                                assignDecorationsBFrec
+                                assignDecorationsDFS
                                     newDecorationAssignments
                                     remainingSlots
                                     remainingRequestedSkills
@@ -227,7 +185,7 @@ let assignDecorations
                         }
                     with
                     | Some completeAssignments -> Some completeAssignments
-                    | None -> assignDecorationsBFrec decorationAssignments slots requestedSkills remainingDecorations
+                    | None -> assignDecorationsDFS decorationAssignments slots requestedSkills remainingDecorations
 
 
 
@@ -246,7 +204,7 @@ let assignDecorations
             | smallestE :: restE, reserved ->
                 match reserved |> List.partition (fun s -> s > smallestE) with
                 | largerR :: restLargerR, _restSmallerR ->
-                    // Swap smallest E for smallest largerR
+                    // Swap smallest E for smallest larger R
                     Some((largerR :: restE), (smallestE :: restLargerR))
                 | [], smallestSmallerR :: restSmallerR -> Some((smallestSmallerR :: (smallestE :: restE)), restSmallerR)
                 | [], [] -> None //Note reserved is already checked to be non-empty above; this case should never be hit. None is still the correct answer.
@@ -254,7 +212,7 @@ let assignDecorations
 
 
         let assignment =
-            assignDecorationsBFrec
+            assignDecorationsDFS
                 decorationAssignments
                 ((extendedSlots @ slots) |> asCounts)
                 requestedSkills
@@ -277,40 +235,10 @@ let assignDecorations
 
 
     // Shrink the set of available slots to the minimum, and expand as needed.
-    let hardRequestedSkills =
-        requestedSkills
-        |> List.filter (fun (skill, count) -> skill |> (isHardSkill skills (decorations |> List.map fst)))
 
-    let hardDecorations =
-        decorations
-        |> List.filter (fun (deco, count) -> validHardDecoration skills requestedSkills deco)
+    let actualReach =
+        decorationSlots |> optimalDecorationReach skills decorations requestedSkills
 
-    let maxPossibleHardDecorations =
-        hardRequestedSkills
-        |> List.map (fun (skill, count) ->
-            skill,
-            min
-                (count / 3)
-                (hardDecorations
-                 |> List.filter (fun (deco, count) -> decoContainsSkill skill deco)
-                 |> List.tryExactlyOne
-                 |> Option.map snd
-                 |> Option.defaultValue 0))
-        |> List.map snd
-        |> List.sum
-
-    let calculateReach maxPossibleHardDecorations decorationSlots =
-        let contributionBySize =
-            function
-            | Slot 4, count ->
-                let maxPossibleHardDecos = (min maxPossibleHardDecorations count)
-                let otherSize4Decos = count - maxPossibleHardDecos
-                (maxPossibleHardDecorations * 3) + (otherSize4Decos * 2)
-            | (_, n) -> n
-
-        decorationSlots |> List.map contributionBySize |> List.sum
-
-    let actualReach = decorationSlots |> calculateReach maxPossibleHardDecorations
     let distance = requestedSkills |> List.map snd |> List.sum
 
     let excessSpace = actualReach - distance
@@ -339,4 +267,6 @@ let assignDecorations
 
     let reservedSlots = reservedSlots @ reservedSlots'
 
-    assignMinimalDecorations [] unreservedSlots ([], reservedSlots) requestedSkills decorations
+    let output = assignMinimalDecorations [] unreservedSlots ([], reservedSlots) requestedSkills decorations
+
+    output

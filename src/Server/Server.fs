@@ -5,7 +5,7 @@ open Fable.Remoting.Giraffe
 open Saturn
 
 open Shared
-open DataTypes
+open GameDataTypes
 open DataAccess
 
 module Storage =

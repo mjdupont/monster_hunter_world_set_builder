@@ -6,7 +6,7 @@ open Helpers
 
 open SAFE
 
-open DataTypes
+open GameDataTypes
 open ModelData
 open Components
 open HelperFunctions.Deferred
@@ -75,16 +75,18 @@ type LoadingMHWData = {
 
 type Model = {
     GameData: PartialDeferred<LoadingMHWData, MHWData, string>
-    Input: string
     ChosenSet: ChosenSet
+    SkillList: SkillList
 }
 
 type Msg =
     | LoadData of DeferredMessage<MHWDataType, string>
     | CheckIfFullyLoaded
     | LoadChosenSetFromWebStorage
+    | LoadSkillListFromWebStorage
+    | FindMatchingSet of (Skill * int) list
     | UpdateChosenSet of ChosenSet
-    | SetInput of string
+    | UpdateSkillList of SkillList
 
 
 let mhwApi = Api.makeProxy<IMHWApi> ()
@@ -103,12 +105,12 @@ let init () : (Model * Cmd<Msg>) =
         ))
 
     let (model: Model) = {
-        Input = ""
         GameData = PartialDeferred.NotAsked
         ChosenSet = {
             ChosenSet.Default with
                 Weapon = customWeapon
         }
+        SkillList = SkillList []
     }
 
     let cmd =
@@ -193,7 +195,10 @@ let update msg (model: Model) =
                 model with
                     GameData = loadingMHWData.asFullyLoaded
             },
-            Cmd.ofMsg LoadChosenSetFromWebStorage
+            Cmd.batch [
+              Cmd.ofMsg LoadChosenSetFromWebStorage
+              Cmd.ofMsg LoadSkillListFromWebStorage
+            ]
         | _ -> model, Cmd.none
     | LoadChosenSetFromWebStorage ->
         let loadedChosenSet =
@@ -233,10 +238,40 @@ let update msg (model: Model) =
                     ChosenSet = loadedChosenSet
             },
             Cmd.none
+
+    | LoadSkillListFromWebStorage ->
+        let loadedSkillList = 
+          match model.GameData with
+          | PartialDeferred.Success gameData ->
+            SkillList.readFromWebStorage gameData.Skills
+          | _ -> SkillList []
+        { model with SkillList = loadedSkillList }, Cmd.none
+
     | UpdateChosenSet set ->
         do ChosenSet.storeToWebStorage set
         { model with ChosenSet = set }, Cmd.none
-    | SetInput value -> { model with Input = value }, Cmd.none
+    | UpdateSkillList list ->
+        do SkillList.storeToWebStorage list
+        { model with SkillList = list }, Cmd.none
+    | FindMatchingSet requestedSkills ->
+        match model.GameData, model.ChosenSet.Weapon with
+        | PartialDeferred.Success gameData, Some weapon ->
+            printfn "Armor length: %i" (gameData.Armor |> List.length)
+            match
+                findSet
+                    gameData.Skills
+                    (gameData.Decorations |> allDecorations gameData.Skills)
+                    weapon
+                    requestedSkills
+                    model.ChosenSet
+                    (gameData.Armor |> armorByType)
+                    gameData.Charms
+            with
+            | None -> model, Cmd.none
+            | Some(chosenSet, armor, charms) ->
+                { model with ChosenSet = chosenSet }, Cmd.ofMsg (UpdateChosenSet chosenSet)
+
+        | _ -> model, Cmd.none
 
 open Feliz
 
@@ -250,7 +285,7 @@ let view (model: Model) dispatch =
         let armorSetBonuses =
             model.ChosenSet |> ChosenSet.armorSetBonuses gameData.ArmorSets
 
-        let totalSkills = (model.ChosenSet |> ChosenSet.totalSkills |> accumulateSkills)
+        let totalSkills = (model.ChosenSet |> ChosenSet.allSkillRanks |> accumulateSkills)
 
         let totalSkillsElement = [
             for skill in totalSkills do
@@ -341,7 +376,7 @@ let view (model: Model) dispatch =
                 Decorations = gameData.Decorations
                 Armor = filteredArmor
                 ChosenArmor = {
-                    Value = model.ChosenSet.getPiece armorType
+                    Value = model.ChosenSet.tryGetPiece armorType
                     Update = updateArmor
                 }
             |}
@@ -404,7 +439,9 @@ let view (model: Model) dispatch =
                             prop.children [
                                 SetSearcher.Component {|
                                     Skills = gameData.Skills
-                                    SubmitSkills = (fun skills -> ())
+                                    SkillList = model.SkillList
+                                    UpdateSkillList = (UpdateSkillList >> dispatch)
+                                    SubmitSkills = (FindMatchingSet >> dispatch)
                                 |}
                             ]
                         ]
