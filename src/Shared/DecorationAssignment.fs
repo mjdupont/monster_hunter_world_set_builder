@@ -37,10 +37,9 @@ let validHardDecoration (skills: Skill list) (remainingSkillNeed: (Skill * int) 
     && (decoration |> skillContribution skills remainingSkillNeed) = 3
 
 
-let updateRemainingSkillNeed (skills: Skill list) (newDecoration: Decoration) (skillNeed: (Skill * int) list) =
-    let newlyAddedSkills = newDecoration |> containedSkills skills
-
-    let folder rSkillNeed (skillToRemove, valueToRemove) =
+let addSkillsToRequestedSkills (skills: Skill list) (skillNeed: (Skill * int) list) (newSkills: (Skill * int) list) =
+  
+  let folder rSkillNeed (skillToRemove, valueToRemove) =
         rSkillNeed
         |> List.map (fun (rSkill, rValue) ->
             if rSkill = skillToRemove then
@@ -48,16 +47,19 @@ let updateRemainingSkillNeed (skills: Skill list) (newDecoration: Decoration) (s
             else
                 rSkill, rValue)
 
-    newlyAddedSkills
+  newSkills
     |> List.fold folder skillNeed
     |> List.filter (fun (skill, need) -> need > 0)
 
+let addDecorationToSkillNeed (skills: Skill list) (newDecoration: Decoration) (skillNeed: (Skill * int) list) =
+    let newlyAddedSkills = newDecoration |> containedSkills skills
+    addSkillsToRequestedSkills skills skillNeed newlyAddedSkills
 
 
 let optimalDecorationReach skills decorations requestedSkills decorationSlots =
     let hardRequestedSkills =
         requestedSkills
-        |> List.filter (fun (skill, count) -> skill |> (isHardSkill skills (decorations |> List.map fst)))
+        |> List.filter (fun (skill, count) -> skill |> (hardDecorationExistsForSkill skills (decorations |> List.map fst)))
 
     let hardDecorations =
         decorations
@@ -89,6 +91,19 @@ let optimalDecorationReach skills decorations requestedSkills decorationSlots =
 
 let distance (requestedSkills : (Skill * int) list) = requestedSkills |> List.map snd |> List.sum
 
+let actualReachHeuristic skills requestedSkills (decorations: (Decoration * int) list) slots =
+  let maxContribution =
+    decorations
+    |> List.map (fun (decoration, count) ->
+        (skillContribution skills requestedSkills decoration))
+    |> List.tryMax |> Option.defaultValue 1
+
+  slots
+  |> List.map (function
+      | (Slot 4, n) -> maxContribution * n
+      | (_, n) -> n)
+  |> List.sum
+
 let findDecorationsSatisfyingSkills
     (skills: Skill list)
     (requestedSkills: (Skill * int) list)
@@ -98,25 +113,14 @@ let findDecorationsSatisfyingSkills
 
     let rec assignDecorationsDFS decorationAssignments (slots: (Slot * int) list) requestedSkills decorations =
         match requestedSkills, slots, decorations with
-        | [], _, _ -> Some decorationAssignments  //Success/Exit Case
+        | [], _, _ -> Some decorationAssignments  
         | _, [], _
         | _, _, [] -> None 
         | requestedSkills, slots, decorations ->
-            let contributions =
-                decorations
-                |> List.map (fun (decoration, count) ->
-                    decoration, count, (skillContribution skills requestedSkills decoration))
 
-            let maxContribution = contributions |> List.map (fun (a, b, c) -> c) |> List.max
+            let actualReachEstimate = actualReachHeuristic skills requestedSkills decorations slots
 
-            let actualReachEstimate =
-                slots
-                |> List.map (function
-                    | (Slot 4, n) -> maxContribution * n
-                    | (_, n) -> n)
-                |> List.sum
-
-            let distance = requestedSkills |> List.map snd |> List.sum
+            let distance = requestedSkills |> distance
 
             if actualReachEstimate < distance then
                 None
@@ -168,7 +172,7 @@ let findDecorationsSatisfyingSkills
                                 (chosenSlot, Some chosenDecoration) :: decorationAssignments
 
                             let remainingRequestedSkills =
-                                requestedSkills |> updateRemainingSkillNeed skills chosenDecoration
+                                requestedSkills |> addDecorationToSkillNeed skills chosenDecoration
 
                             let newRemainingDecorations =
                                 if nChosenDecorations <= 1 then

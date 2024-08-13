@@ -139,6 +139,11 @@ module List =
 module Option =
     let (>>=) o f = Option.bind f o
 
+    let maybeDefaultValue (firstChoice: 'a option) (secondChoice: 'a option) = 
+      match firstChoice with
+      | Some o -> Some o
+      | None -> secondChoice 
+
     let traverseList (f: 'a -> 'b option) (ls: 'a list) : 'b list option =
         let folder (state: 'b list option) (next: 'a) =
             f next >>= (fun next' -> state >>= (fun state' -> Some(next' :: state')))
@@ -146,6 +151,13 @@ module Option =
         ls |> List.fold folder (Some [])
 
     let sequenceList ls = traverseList id ls
+
+    let withFallback (fallback: 'a -> 'b option) (success: 'a -> 'b option) = 
+      fun a ->
+        match success a with
+        | Some answer -> Some answer
+        | None -> fallback a
+
 
 type SymmetricMatrix<'Key, 'Value when 'Key: comparison> = private {
     KeyIndex: System.Collections.Generic.IReadOnlyDictionary<'Key, int>

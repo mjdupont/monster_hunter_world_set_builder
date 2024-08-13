@@ -242,7 +242,7 @@ let decorationSlotSize decorations skill =
 ///
 /// Determines if a hard decoration exists for the given skill.
 ///
-let isHardSkill skills decorations skill =
+let hardDecorationExistsForSkill skills decorations skill =
     decorations
     |> List.filter (decoContainsSkill skill)
     |> List.choose (
@@ -256,7 +256,6 @@ let isHardSkill skills decorations skill =
 ///
 /// Calculates the highest level of each skill.
 /// 
-
 let skillCaps skills =
     skills
     |> List.map (fun skill -> skill, (skill.Ranks |> Array.map (fun sr -> sr.Level) |> Array.max))
