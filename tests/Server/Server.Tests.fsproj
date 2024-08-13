@@ -8,7 +8,6 @@
   <ItemGroup>
     <None Include="paket.references" />
     <Compile Include="DecorationAssignment.Tests.fs" />
-    <Compile Include="MaxFlowMap.Tests.fs" />
     <Compile Include="SetSearchLogic.Tests.fs" />
     <Compile Include="Server.Tests.fs" />
   </ItemGroup>

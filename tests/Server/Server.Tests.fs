@@ -24,17 +24,36 @@ let server =
             Expect.equal "NotImplemented" "NotImplemented" "These should be fine because they are placeholders"
     ]
 
-let all = testList "All" [ Shared.Tests.shared; server; SetSearchLogic.Tests.setSearchLogic; DecorationAssignment.Tests.decorationAssignment; DecorationAssignment.Tests.decorationAssignmentFull; (*MaxFlowMap.Tests.maxFlowMap*)]
+let all =
+    testList "All" [
+        Shared.Tests.shared
+        server
+        SetSearchLogic.Tests.setSearchLogic
+        DecorationAssignment.Tests.decorationAssignment
+        DecorationAssignment.Tests.decorationAssignmentFull
+    ]
 
-let writeData () = 
-  let skillNames, skills' = InferredTypes.Skill.loadSkills |> Async.RunSynchronously
-  let decorations = InferredTypes.Decoration.loadDecorations skillNames |> Async.RunSynchronously
-  
-  do skillNames |> Thoth.Json.Net.Encode.Auto.toString |> (fun str -> File.WriteAllText(skillsNameFile, str))
-  do skills' |> Thoth.Json.Net.Encode.Auto.toString |> (fun str -> File.WriteAllText(skillFile, str))
-  do decorations |> Thoth.Json.Net.Encode.Auto.toString |> (fun str -> File.WriteAllText(decorationsFile, str))
+let writeData () =
+    let skillNames, skills' = InferredTypes.Skill.loadSkills |> Async.RunSynchronously
+
+    let decorations =
+        InferredTypes.Decoration.loadDecorations skillNames |> Async.RunSynchronously
+
+    do
+        skillNames
+        |> Thoth.Json.Net.Encode.Auto.toString
+        |> (fun str -> File.WriteAllText(skillsNameFile, str))
+
+    do
+        skills'
+        |> Thoth.Json.Net.Encode.Auto.toString
+        |> (fun str -> File.WriteAllText(skillFile, str))
+
+    do
+        decorations
+        |> Thoth.Json.Net.Encode.Auto.toString
+        |> (fun str -> File.WriteAllText(decorationsFile, str))
 
 
 [<EntryPoint>]
 let main _ = runTestsWithCLIArgs [] [||] all
-

@@ -9,17 +9,16 @@ open DataTypes
 open DataAccess
 
 module Storage =
-    let armor : ResizeArray<Armor> = ResizeArray()
-    let armorSets : ResizeArray<ArmorSet> = ResizeArray()
-    let skills : ResizeArray<Skill> = ResizeArray()
-    let charms : ResizeArray<Charm> = ResizeArray()
-    let decorations : ResizeArray<Decoration> = ResizeArray()
+    let armor: ResizeArray<Armor> = ResizeArray()
+    let armorSets: ResizeArray<ArmorSet> = ResizeArray()
+    let skills: ResizeArray<Skill> = ResizeArray()
+    let charms: ResizeArray<Charm> = ResizeArray()
+    let decorations: ResizeArray<Decoration> = ResizeArray()
 
-    let weapons : ResizeArray<Weapon> = ResizeArray()
+    let weapons: ResizeArray<Weapon> = ResizeArray()
 
 
-    let initialize = 
-      async {
+    let initialize = async {
         let! skillNames, skills' = InferredTypes.Skill.loadSkills
         skills.AddRange(skills')
         let! armorSets' = InferredTypes.ArmorSet.loadArmorSets skillNames
@@ -36,7 +35,7 @@ module Storage =
         weapons.AddRange(weapons')
 
         ()
-      }
+    }
 
 
 let monsterHunterApi = {
@@ -45,7 +44,7 @@ let monsterHunterApi = {
     getDecorations = fun () -> async { return Storage.decorations |> List.ofSeq }
     getSkills = fun () -> async { return Storage.skills |> List.ofSeq }
     getCharms = fun () -> async { return Storage.charms |> List.ofSeq }
-    getWeapons = fun () -> async { return Storage.weapons |> List.ofSeq}
+    getWeapons = fun () -> async { return Storage.weapons |> List.ofSeq }
 }
 
 let webApp =
@@ -64,6 +63,5 @@ let app = application {
 [<EntryPoint>]
 let main _ =
     Storage.initialize |> Async.RunSynchronously
-    explore_armorset_skills_real (Storage.armorSets |> Array.ofSeq) (Storage.skills |> Array.ofSeq)
     run app
     0

@@ -1,14 +1,5 @@
-Fable.Browser.WebStorage
-Fable.Core
-Fable.Elmish
-Fable.Elmish.React
-Fable.Elmish.Debugger
-Fable.Elmish.HMR
-Fable.Remoting.Client
-Fable.React
-Feliz
-Feliz.Bulma
-Feliz.SelectSearch
+SAFE.Client
 FSharp.Core
-FSharp.Data
+Feliz.SelectSearch
+Fable.Elmish.Debugger
 Thoth.Json

@@ -1,40 +1,57 @@
 namespace Components
 
-  module SetSearcher = 
+module SetSearcher =
     open Feliz
 
     open DataTypes
 
-    [<RequireQualifiedAccess>]
-    type Properties = 
-      { Skills: Skill seq 
-        SubmitSkills: (Skill * int) list -> unit
-      }
-    
+
+
     [<ReactComponent>]
-    let Component (props:Properties) =
+    let Component
+        (props:
+            {|
+                Skills: Skill seq
+                SubmitSkills: (Skill * int) list -> unit
+            |})
+        =
 
-      let (selectedSkills:(Skill * int) list), updateSelectedSkills = React.useState []
-      let unselectedSkills = (props.Skills |> Seq.filter (fun skill -> not (selectedSkills |> List.map (fst >> (fun sk -> sk.Name)) |> List.contains skill.Name)))
+        let (selectedSkills: (Skill * int) list), updateSelectedSkills = React.useState []
 
-      let addSkill (skill:(Skill * int) option) = 
-        updateSelectedSkills (selectedSkills |> List.append ([skill] |> List.choose id))
+        let unselectedSkills =
+            (props.Skills
+             |> Seq.filter (fun skill ->
+                 not (
+                     selectedSkills
+                     |> List.map (fst >> (fun sk -> sk.Name))
+                     |> List.contains skill.Name
+                 )))
 
-      let removeSkill (skill:Skill) =
-        updateSelectedSkills (selectedSkills |> List.filter (fun (sk, r) -> not (sk.Name = skill.Name)))
+        let addSkill (skill: (Skill * int) option) =
+            updateSelectedSkills (selectedSkills |> List.append ([ skill ] |> List.choose id))
 
-      Html.div [
-        prop.className "SetSearcher flex flex-col gap-1"
-        prop.children [
-          Html.div [
-            prop.className "selected-skills-list flex-item flex flex-col gap-1"
+        let removeSkill (skill: Skill) =
+            updateSelectedSkills (selectedSkills |> List.filter (fun (sk, r) -> not (sk.Name = skill.Name)))
+
+        Html.div [
+            prop.className "SetSearcher flex flex-col gap-1"
             prop.children [
-              for x in selectedSkills -> 
-                let (skill, rank) = x
-                SelectedSkill.Component { Skill = skill; Rank = rank; RemoveSkillCallBack = removeSkill }
+                Html.div [
+                    prop.className "selected-skills-list flex-item flex flex-col gap-1"
+                    prop.children [
+                        for x in selectedSkills ->
+                            let (skill, rank) = x
+
+                            SelectedSkill.Component {|
+                                Skill = skill
+                                Rank = rank
+                                RemoveSkillCallBack = removeSkill
+                            |}
+                    ]
+                ]
+                SkillSelector.Component {|
+                    Skills = unselectedSkills
+                    AddSkill = addSkill
+                |}
             ]
-          ]
-          SkillSelector.Component { Skills = unselectedSkills; AddSkill = addSkill}
         ]
-      ]
-      
