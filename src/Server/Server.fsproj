@@ -10,6 +10,23 @@
     <Compile Include="DataAccess.fs" />
     <Compile Include="Server.fs" />
   </ItemGroup>
+
+  <ItemGroup>
+    <!-- Include specific files
+    <None Update="path\to\your\file1.txt">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+    <None Update="path\to\your\file2.config">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+    -->
+
+    <!-- Include all files in a specific directory -->
+    <None Include="resources\**\*">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+  </ItemGroup>
+
   <ItemGroup>
     <ProjectReference Include="..\Shared\Shared.fsproj" />
   </ItemGroup>
