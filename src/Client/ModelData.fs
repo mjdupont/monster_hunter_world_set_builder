@@ -6,6 +6,7 @@ module ModelData
 
 open APIDataTypes
 open ModelData
+open Helpers.Option
 
 type private StoredDecorationSlot = (Slot * int option) option
 
@@ -251,8 +252,8 @@ type StoredSkillList =
 
 type SkillList with
   static member serialize(SkillList skillList) : string = 
-    [ for (skill, count) in skillList ->
-      skill.Id, count ] |> Thoth.Json.Encode.Auto.toString<StoredSkillList>
+    [ for (skill, count) in skillList -> skill.Id, count ] 
+    |> Thoth.Json.Encode.Auto.toString<StoredSkillList>
 
   static member deserialize(skills:Skill list) skillListString : SkillList option =
     let maybeRawList = Thoth.Json.Decode.Auto.fromString<StoredSkillList> skillListString
@@ -282,8 +283,96 @@ type SkillList with
     |> Option.defaultValue (SkillList [])
 
 
+type SearchStatus = 
+  | NotAsked
+  | Searching
+  | Found
+  | Failed
+
 
 type UserData =
   { Armor: Armor list
-    Charms: Charm list
+    Charms: (Charm * CharmRank) list
+    Decorations: (Decoration * int) list
   }
+  with 
+    static member Default = 
+      { Armor = []
+        Charms = []
+        Decorations = []
+      }
+    static member allItems skills armor (charms:Charm seq) decorations = 
+      { Armor = armor
+        Charms = charms |> List.ofSeq |> List.map (fun charm -> charm.Ranks |> List.ofArray |> List.map (fun cr -> charm, cr)) |> List.concat
+        Decorations = decorations |> allDecorations skills
+      }
+
+type StoredUserData = 
+  {
+    Armor: int list
+    Charms: (int * int) list
+    Decorations: (int * int) list
+  }
+
+type UserData with
+  static member serialize userData : string = 
+    let storageForm : StoredUserData = 
+      { Armor = [ for armorPiece in userData.Armor -> armorPiece.Id ]
+      ; Charms = [ for (charm, rank) in userData.Charms -> (charm.Id, rank.Level) ]
+      ; Decorations = [ for (decoration, count) in userData.Decorations -> decoration.Id, count ]
+      } 
+    storageForm |> Thoth.Json.Encode.Auto.toString
+
+  static member deserialize ((armor:Armor list), (charms:Charm list), (decorations: Decoration list)) (storedUserDataString : string) : UserData option = 
+    let storedUserData = Thoth.Json.Decode.Auto.fromString storedUserDataString
+    match storedUserData with
+    | Error _ -> None
+    | Ok (storedUserData:StoredUserData) -> 
+      let foundArmor = 
+        storedUserData.Armor |> traverseList ( fun armorId -> armor |> List.filter (fun a -> a.Id = armorId) |> List.tryExactlyOne )
+      let foundCharms = 
+        storedUserData.Charms 
+        |> traverseList
+          (fun (charmId, charmRank) ->
+            charms 
+            |> List.filter (fun c -> c.Id = charmId) 
+            |> List.tryExactlyOne 
+            |> Option.map (fun c -> c.Ranks |> Array.filter (fun cr -> cr.Level <= charmRank) |> Array.map (fun cr -> c, cr)) 
+            |> Option.map List.ofArray
+          )
+        |> Option.map List.concat
+        
+      let foundDecorations = 
+        storedUserData.Decorations |> traverseList
+          ( fun (decoId, decoCount) ->
+            decorations 
+            |> List.filter (fun decoration -> decoration.Id = decoId) 
+            |> List.tryExactlyOne 
+            |> Option.map (fun deco -> deco, decoCount)
+          )
+
+      match foundArmor, foundCharms, foundDecorations with
+      | Some a, Some c, Some d ->
+        Some 
+          {
+            Armor = a
+            Charms = c 
+            Decorations = d
+          }
+      | _ -> None
+
+
+  static member storeToWebStorage userData =
+    let serialized = UserData.serialize (userData)
+    Browser.WebStorage.sessionStorage.setItem ("userData", serialized)
+
+  static member readFromWebStorage skills (armor:Armor list) (charms:Charm list) (decorations: Decoration list) =
+    let result = 
+      Browser.WebStorage.sessionStorage.getItem ("userData") 
+      |> UserData.deserialize (armor, charms, decorations) 
+    match result with
+    | Some result -> result
+    | None -> 
+      printfn "Failed to load user data from WebStorage! Defaulting to all items..."
+      UserData.allItems skills armor charms decorations
+    

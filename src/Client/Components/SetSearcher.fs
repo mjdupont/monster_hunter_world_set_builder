@@ -36,6 +36,9 @@ module SetSearcher =
         let removeSkill (skill: Skill) =
             props.UpdateSkillList (SkillList (skillList |> List.filter (fun (sk, r) -> not (sk.Name = skill.Name))))
 
+        let clearSkills () = 
+          props.UpdateSkillList (SkillList [])
+
         Html.div [
             prop.className "SetSearcher flex flex-col gap-1"
             prop.children [
@@ -59,6 +62,16 @@ module SetSearcher =
                   prop.children [
                     Html.text "Find Set"
                   ]
+                  prop.style [ style.margin.auto ]
                 ]
+                if props.Skills |> (not << Seq.isEmpty)
+                then 
+                      Html.button [
+                          prop.type' "button"
+                          prop.disabled (props.Skills |> Seq.isEmpty)
+                          prop.onClick (fun _me -> clearSkills ())
+                          prop.children [ Html.text "Clear all Skills"]
+                          prop.style [ style.margin.auto ]
+                      ]
             ]
         ]

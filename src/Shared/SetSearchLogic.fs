@@ -58,7 +58,10 @@ let calculateReachOfChosenSet skills decorations chosenSet charms armorByType re
       |> asCounts
       |> (optimalDecorationReach skills decorations remainingSkillNeed)
 
-    bestUnassignedReach + charmReach + assignedArmorUnassignedDecorationsReach
+    let weaponDecorationReach = 
+      chosenSet.Weapon |> Option.map (snd >> DecorationSlots.asSlots >> (List.map fst) >> asCounts) |> Option.defaultValue [] |> (optimalDecorationReach skills decorations remainingSkillNeed)
+
+    bestUnassignedReach + charmReach + assignedArmorUnassignedDecorationsReach + weaponDecorationReach
 
 let getUnassignedSlots accumulatedSet = 
     let _assignedArmorSlots, unassignedArmorSlots =
@@ -184,6 +187,7 @@ module DecorationAllocation =
 open DecorationAllocation
 
 let tryAssignDecorations skills remainingSkillNeed decorations chosenSet =
+  printfn "Trying to assign decorations..."
   option {
     let unassignedSlots = chosenSet |> getUnassignedSlots |> List.map fst |> asCounts
     let! decorationSolution = findDecorationsSatisfyingSkills skills remainingSkillNeed unassignedSlots decorations
@@ -192,12 +196,15 @@ let tryAssignDecorations skills remainingSkillNeed decorations chosenSet =
       |> List.choose (fun (s, mDeco) -> mDeco |> Option.map (fun mDec -> s, mDec))
       |> List.sortByDescending fst
 
-    return! allocateDecorations chosenSet decorationsToAllocate
+    let decorations = allocateDecorations chosenSet decorationsToAllocate
+    printfn "%A" decorations
+    return! decorations
   }
 
 
 
 let tryAssignArmor (armorByType: Map<ArmorType, Armor List>) accumulatedSet =
+  printfn "Trying to assign armor..."
   let lookupNextArmorPiece armorType = option {
     let! pieces = armorByType |> Map.tryFind armorType
     let! maybeChosenPieces = 
@@ -223,6 +230,7 @@ let tryAssignArmor (armorByType: Map<ArmorType, Armor List>) accumulatedSet =
 
 
 let tryAssignCharm charms accumulatedSet = 
+  printfn "Trying to assign armor..."
   match accumulatedSet.Charm, charms with
   | None, nextCharm :: remainingCharms ->
     let newAccumulatedSet = {accumulatedSet with Charm = Some nextCharm}
@@ -267,6 +275,7 @@ let rec assignArmor3'
       let distance = remainingSkillNeed |> distance
       let reach = calculateReachOfChosenSet skills decorations accumulatedSet charms armorByType remainingSkillNeed 
 
+      printfn "reach:%i distance:%i" reach distance
       let tryRewindSet () = 
         match accumulatedSet |> tryRemoveLastAssignment fixedSet with
         | Some rewoundSet ->
@@ -280,6 +289,7 @@ let rec assignArmor3'
       | None -> 
         tryRewindSet ()
       | Some (updatedSet, remainingArmor, remainingCharms) when updatedSet |> isCompleteSet skills requestedSkills -> 
+        printfn "Found set!"
         Some (updatedSet, remainingArmor, remainingCharms)
       | Some (updatedSet, remainingArmor, remainingCharms) -> 
         assignArmor3' skills fixedSet decorations requestedSkills remainingCharms remainingArmor updatedSet
@@ -299,15 +309,20 @@ let assignArmor3
     // Iterate on armor assignments for each of these subsets
 
     let rec assignArmor3outer accumulatedSets fixedSet workingSet' armor' charms' = 
+      printfn "Accumulated sets: %i" (List.length accumulatedSets)
       match assignArmor3' skills chosenSet decorations requestedSkills charms' armor' workingSet' with
       | Some (finishedSet, remainingArmor, remainingCharms) when accumulatedSets |> List.length >= 9 ->
+        printfn "Found 10 sets!"
         finishedSet :: accumulatedSets
+      
       | Some (finishedSet, remainingArmor, remainingCharms) -> 
+        printfn "Committed set: running again"
+        let newAccumulatedSets = (finishedSet :: accumulatedSets)
         let nextSet = finishedSet |> (removeUnboundDecorations fixedSet) |> tryRemoveLastAssignment fixedSet
         match nextSet with
         | Some newWorkingSet -> 
-          assignArmor3outer (finishedSet :: accumulatedSets) fixedSet newWorkingSet remainingArmor remainingCharms 
-        | None -> accumulatedSets
+          assignArmor3outer newAccumulatedSets fixedSet newWorkingSet remainingArmor remainingCharms 
+        | None -> newAccumulatedSets
       | None -> accumulatedSets
 
     assignArmor3outer [] chosenSet chosenSet armorByType charms

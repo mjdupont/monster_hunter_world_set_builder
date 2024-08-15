@@ -22,3 +22,12 @@
   outline: 2px solid white;
   border-radius: 2px
 }
+
+button {
+  border: 2px solid black;
+  box-shadow: 2px 2px gray;
+}
+
+button:disabled {
+  color: gray
+}

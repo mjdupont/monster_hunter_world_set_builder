@@ -77,6 +77,8 @@ type Model = {
     GameData: PartialDeferred<LoadingMHWData, MHWData, string>
     ChosenSet: ChosenSet
     SkillList: SkillList
+    SearchStatus: SearchStatus
+    UserData: UserData
 }
 
 type Msg =
@@ -84,15 +86,18 @@ type Msg =
     | CheckIfFullyLoaded
     | LoadChosenSetFromWebStorage
     | LoadSkillListFromWebStorage
+    | LoadUserDataFromWebStorage
     | FindMatchingSet of (Skill * int) list
     | UpdateChosenSet of ChosenSet
     | UpdateSkillList of SkillList
+    | SetSearchStatus of SearchStatus
+    | UpdateUserData of UserData
+    | InitializeUserData of MHWData
 
 
 let mhwApi = Api.makeProxy<IMHWApi> ()
 
-let init () : (Model * Cmd<Msg>) =
-    let customWeapon =
+let customWeapon =
         (Some(
             {
                 Attack = 0
@@ -104,6 +109,8 @@ let init () : (Model * Cmd<Msg>) =
             DecorationSlots.FromSlots [||]
         ))
 
+let init () : (Model * Cmd<Msg>) =
+
     let (model: Model) = {
         GameData = PartialDeferred.NotAsked
         ChosenSet = {
@@ -111,6 +118,8 @@ let init () : (Model * Cmd<Msg>) =
                 Weapon = customWeapon
         }
         SkillList = SkillList []
+        SearchStatus = NotAsked
+        UserData = UserData.Default
     }
 
     let cmd =
@@ -181,6 +190,7 @@ let loadNewGameData model mhwDataType =
 let update msg (model: Model) =
     match msg with
     | LoadData(DeferredMessage.InProgress) -> model, Cmd.none
+
     | LoadData(DeferredMessage.Success dataType) ->
         {
             model with
@@ -188,6 +198,7 @@ let update msg (model: Model) =
         },
         Cmd.ofMsg CheckIfFullyLoaded
     | LoadData(DeferredMessage.Failure _) -> model, Cmd.none // TODO: Handle this case
+
     | CheckIfFullyLoaded ->
         match model.GameData with
         | PartialDeferred.InProgress loadingMHWData when loadingMHWData.isFullyLoaded ->
@@ -200,6 +211,7 @@ let update msg (model: Model) =
               Cmd.ofMsg LoadSkillListFromWebStorage
             ]
         | _ -> model, Cmd.none
+
     | LoadChosenSetFromWebStorage ->
         let loadedChosenSet =
             match model.GameData with
@@ -209,18 +221,6 @@ let update msg (model: Model) =
 
                 loadedChosenset
             | _ -> model.ChosenSet
-
-        let customWeapon =
-            (Some(
-                {
-                    Attack = 0
-                    Id = 0
-                    Name = "Custom Weapon"
-                    Rarity = 0
-                    Slots = [||]
-                },
-                DecorationSlots.FromSlots [||]
-            ))
 
         match loadedChosenSet.Weapon with
         | None ->
@@ -247,12 +247,22 @@ let update msg (model: Model) =
           | _ -> SkillList []
         { model with SkillList = loadedSkillList }, Cmd.none
 
+    | LoadUserDataFromWebStorage ->
+        let loadedUserData =
+          match model.GameData with
+          | PartialDeferred.Success gameData ->
+            UserData.readFromWebStorage gameData.Skills gameData.Armor gameData.Charms gameData.Decorations
+          | _ -> UserData.Default
+        { model with UserData = loadedUserData }, Cmd.none
+
     | UpdateChosenSet set ->
         do ChosenSet.storeToWebStorage set
         { model with ChosenSet = set }, Cmd.none
+
     | UpdateSkillList list ->
         do SkillList.storeToWebStorage list
         { model with SkillList = list |> (fun (SkillList sl) -> SkillList (sl |> List.sort)) }, Cmd.none
+
     | FindMatchingSet requestedSkills ->
         match model.GameData, model.ChosenSet.Weapon with
         | PartialDeferred.Success gameData, Some weapon ->
@@ -266,11 +276,28 @@ let update msg (model: Model) =
                     (gameData.Decorations |> allDecorations gameData.Skills)
                     requestedSkills
             with
-            | [] -> model, Cmd.none
+            | [] -> model, Cmd.ofMsg (SetSearchStatus Failed)
             | set :: rest ->
-                { model with ChosenSet = set }, Cmd.ofMsg (UpdateChosenSet set)
+                { model with ChosenSet = set }, Cmd.batch 
+                  [ Cmd.ofMsg (UpdateChosenSet set)
+                    Cmd.ofMsg (SetSearchStatus Found)
+                  ]
 
         | _ -> model, Cmd.none
+
+    | SetSearchStatus status ->
+      match status with
+      | Found 
+      | Failed  
+      | _ -> { model with SearchStatus = status }, Cmd.none
+
+    | InitializeUserData gameData ->
+        let newUserData = UserData.allItems gameData.Skills gameData.Armor gameData.Charms gameData.Decorations
+        { model with UserData = newUserData }, Cmd.none
+
+    | UpdateUserData userData ->
+        do UserData.storeToWebStorage userData
+        { model with UserData = userData }, Cmd.none 
 
 open Feliz
 
@@ -406,6 +433,13 @@ let view (model: Model) dispatch =
                                 "armorsetbuilder m-auto flex flex-col items-center stretch center center w-max bg-white/80 rounded-md shadow-md"
                             prop.children [
                                 //Weapon.Component gameData.Decorations gameData.Weapons model.ChosenSet.Weapon ((fun weapon -> { model.ChosenSet with Weapon = weapon }) >> UpdateChosenSet >> dispatch)
+                                Html.button [
+                                  let newChosenSet = { ChosenSet.Default with Weapon = customWeapon}
+
+                                  prop.onClick (fun _me -> ((UpdateChosenSet newChosenSet) |> dispatch))
+                                  prop.children [ Html.text "Clear Chosen Armor/Decorations"]
+                                ]
+                                SearchStatus.Component {| Status =  model.SearchStatus; SetSearchStatus = (SetSearchStatus >> dispatch) |}
                                 WeaponBuilder.Component {|
                                     Decorations = gameData.Decorations
                                     ChosenWeapon = {
@@ -440,7 +474,11 @@ let view (model: Model) dispatch =
                                     Skills = gameData.Skills
                                     SkillList = model.SkillList
                                     UpdateSkillList = (UpdateSkillList >> dispatch)
-                                    SubmitSkills = (FindMatchingSet >> dispatch)
+                                    SubmitSkills = 
+                                      (fun skills ->
+                                        do dispatch (SetSearchStatus Searching)
+                                        skills |> (FindMatchingSet >> dispatch)
+                                      )
                                 |}
                             ]
                         ]
