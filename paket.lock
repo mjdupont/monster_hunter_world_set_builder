@@ -2,6 +2,14 @@ STORAGE: NONE
 RESTRICTION: == net8.0
 NUGET
   remote: https://api.nuget.org/v3/index.json
+    ExcelDataReader (3.7)
+    ExcelDataReader.DataSet (3.7)
+      ExcelDataReader (>= 3.7)
+    ExcelProvider (2.1)
+      ExcelDataReader (>= 3.6)
+      ExcelDataReader.DataSet (>= 3.6)
+      FSharp.Core (>= 6.0.7)
+      System.Text.Encoding.CodePages (>= 6.0)
     Expecto (9.0.4)
       FSharp.Core (>= 4.6)
       Mono.Cecil (>= 0.11.3)
@@ -227,6 +235,7 @@ NUGET
       Microsoft.IdentityModel.JsonWebTokens (>= 7.6.2)
       Microsoft.IdentityModel.Tokens (>= 7.6.2)
     System.Reactive (5.0)
+    System.Text.Encoding.CodePages (8.0)
     System.Text.Encodings.Web (8.0)
     System.Text.Json (8.0.4)
       System.Text.Encodings.Web (>= 8.0)

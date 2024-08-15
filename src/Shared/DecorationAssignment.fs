@@ -1,6 +1,6 @@
 module DecorationAssignment
 
-open GameDataTypes
+open APIDataTypes
 open Helpers
 open FSharp.Core
 

@@ -3,7 +3,7 @@ namespace Components
 module DecorationSlots =
     open Feliz
 
-    open GameDataTypes
+    open APIDataTypes
     open ModelData
     open HelperFunctions
 

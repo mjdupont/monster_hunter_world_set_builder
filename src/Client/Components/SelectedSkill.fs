@@ -3,7 +3,7 @@ namespace Components
 module SelectedSkill =
     open Feliz
 
-    open GameDataTypes
+    open APIDataTypes
 
 
 

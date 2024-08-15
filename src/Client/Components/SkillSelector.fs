@@ -4,7 +4,7 @@ module SkillSelector =
     open Feliz
     open Feliz.SelectSearch
 
-    open GameDataTypes
+    open APIDataTypes
 
     [<ReactComponent>]
     let Component

@@ -1,6 +1,6 @@
 module SetSearchLogic
 
-open GameDataTypes
+open APIDataTypes
 open Helpers
 open ModelData
 open DecorationAssignment

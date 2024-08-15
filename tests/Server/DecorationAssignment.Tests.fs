@@ -2,7 +2,7 @@ module DecorationAssignment.Tests
 
 open Shared
 open SetSearchLogic
-open GameDataTypes
+open APIDataTypes
 open Helpers
 open Server
 open DataAccess

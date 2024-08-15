@@ -3,7 +3,7 @@ namespace Components
 module SetSearcher =
     open Feliz
 
-    open GameDataTypes
+    open APIDataTypes
     open ModelData
 
 

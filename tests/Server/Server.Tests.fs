@@ -12,7 +12,7 @@ open Helpers.Constants
 let all =
     testList "All" [
         Shared.Tests.shared
-        GameDataTypes.Tests.gameDataTypes
+        APIDataTypes.Tests.gameDataTypes
         DecorationAssignment.Tests.decorationAssignment
         SetSearchLogic.Tests.setSearchLogic
         

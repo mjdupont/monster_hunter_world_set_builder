@@ -1,6 +1,6 @@
 /// This module is intended to reflect the DataTypes used in the Monster Hunter API.
 /// Very little logic should be included here.
-module GameDataTypes
+module APIDataTypes
 
 type Rank =
     | Low
@@ -283,3 +283,46 @@ let asItems (xs: ('a * int) seq) = [
         for i in 1..count -> x
 ]
 
+/// This module is intended to describe data types relating to parsing data from excel records from Monster Hunter World
+module MHWGameData =
+  type ArmorType = 
+  | Regular
+  | FullSet
+
+  type EquipSlot = 
+  | Head
+  | Chest
+  | Arms
+  | Waist
+  | Legs
+  | Charm
+
+  type Gender = 
+  | Male
+  | Female
+  | Unisex
+  
+  type Resistances = 
+   {
+    Fire: int
+    Water: int
+    Ice: int
+    Thunder: int
+    Dragon: int
+   }
+
+  type Armor = 
+    { 
+      Name : string
+      Index : uint32
+      Type : ArmorType
+      EquipSlot : EquipSlot
+      Rarity : byte 
+      Defense : int
+      Resistances : Resistances
+      //ModelID1 : int
+      Slots : Slot list
+      Set_Skill : int
+      Gender: Gender
+      Description: string
+    }

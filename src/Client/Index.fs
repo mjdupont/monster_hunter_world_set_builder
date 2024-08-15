@@ -6,7 +6,7 @@ open Helpers
 
 open SAFE
 
-open GameDataTypes
+open APIDataTypes
 open ModelData
 open Components
 open HelperFunctions.Deferred

@@ -4,7 +4,7 @@ module Weapon =
     open Feliz
     open Feliz.SelectSearch
 
-    open GameDataTypes
+    open APIDataTypes
     open ModelData
     open HelperFunctions
 

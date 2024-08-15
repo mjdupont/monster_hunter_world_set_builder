@@ -430,3 +430,7 @@ release.sh
 
 ## Environment Variables:
 .env
+
+
+## Python environment: 
+pyenv/

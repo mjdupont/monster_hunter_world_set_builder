@@ -4,7 +4,7 @@
 
 module ModelData
 
-open GameDataTypes
+open APIDataTypes
 open ModelData
 
 type private StoredDecorationSlot = (Slot * int option) option
@@ -280,3 +280,10 @@ type SkillList with
     Browser.WebStorage.sessionStorage.getItem ("skillList") 
     |> SkillList.deserialize skills  
     |> Option.defaultValue (SkillList [])
+
+
+
+type UserData =
+  { Armor: Armor list
+    Charms: Charm list
+  }

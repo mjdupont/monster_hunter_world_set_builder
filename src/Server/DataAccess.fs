@@ -3,7 +3,7 @@
 module DataAccess
 
 open FSharp.Data
-open GameDataTypes
+open APIDataTypes
 open System.Text.RegularExpressions
 open Helpers
 
@@ -202,7 +202,7 @@ module InferredTypes =
             }
             Id = armor.Id
             Name = armor.Name
-            Rank = armor.Rank |> (|Rank|_|) |> Option.defaultValue GameDataTypes.Rank.Low //TODO Handle this default better
+            Rank = armor.Rank |> (|Rank|_|) |> Option.defaultValue APIDataTypes.Rank.Low //TODO Handle this default better
             Rarity = armor.Rarity
             Resistances = {
                 Ice = armor.Resistances.Ice
@@ -219,7 +219,7 @@ module InferredTypes =
                     |> (SkillRank.toReal skillNames))
             Slots = armor.Slots |> Array.map (fun slot -> Slot slot.Rank)
             Slug = armor.Id.ToString()
-            Type = armor.Type |> (|ArmorType|_|) |> Option.defaultValue GameDataTypes.ArmorType.Legs //TODO Handle this default better
+            Type = armor.Type |> (|ArmorType|_|) |> Option.defaultValue APIDataTypes.ArmorType.Legs //TODO Handle this default better
         }
 
         let loadArmor (skillNames: Map<int, string>) : Async<Armor list> = async {
@@ -333,7 +333,7 @@ module InferredTypes =
         let toReal (skillNames: Map<int, string>) (armorSet: Api.Root) = {
             Id = armorSet.Id
             Name = armorSet.Name
-            Rank = armorSet.Rank |> (|Rank|_|) |> Option.defaultValue GameDataTypes.Rank.Low //TODO Handle this default better
+            Rank = armorSet.Rank |> (|Rank|_|) |> Option.defaultValue APIDataTypes.Rank.Low //TODO Handle this default better
             Pieces = [| for piece in armorSet.Pieces -> piece.Id |]
             Bonus =
                 armorSet.Bonus
@@ -410,7 +410,7 @@ module Testing =
         let armorMap =
             armor
             |> Seq.groupBy _.Type
-            |> Seq.choose (fun (key, value) -> GameDataTypes.(|ArmorType|_|) key |> Option.map (fun x -> x, value))
+            |> Seq.choose (fun (key, value) -> APIDataTypes.(|ArmorType|_|) key |> Option.map (fun x -> x, value))
             |> Map.ofSeq
 
         for KeyValue(armorSlot, armor) in armorMap do

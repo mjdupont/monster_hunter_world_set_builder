@@ -4,7 +4,7 @@ module DecorationSizeSelector =
     open Feliz
 
     open ModelData
-    open GameDataTypes
+    open APIDataTypes
     open HelperFunctions
 
 

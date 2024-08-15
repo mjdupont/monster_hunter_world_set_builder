@@ -4,7 +4,7 @@ module Decoration =
     open Feliz
     open Feliz.SelectSearch
 
-    open GameDataTypes
+    open APIDataTypes
     open HelperFunctions
 
     [<ReactComponent>]
