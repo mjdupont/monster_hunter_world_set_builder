@@ -11,6 +11,12 @@
     <None Include="paket.references" />
     <Compile Include="HelperFunctions.fs" />
     <Compile Include="ModelData.fs" />
+    <Compile Include="Components\UIElements\Accordion.fs" />
+    <Compile Include="Components\UIElements\Sidebar.fs" />
+    <Compile Include="Components\UserArmorList.fs" />
+    <Compile Include="Components\UserCharmList.fs" />
+    <Compile Include="Components\UserDecorationList.fs" />
+    <Compile Include="Components\UserEquipmentSelector.fs" />
     <Compile Include="Components\DecorationSizeSelector.fs" />
     <Compile Include="Components\Decoration.fs" />
     <Compile Include="Components\SkillSelector.fs" />

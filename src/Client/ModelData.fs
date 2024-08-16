@@ -7,6 +7,7 @@ module ModelData
 open APIDataTypes
 open ModelData
 open Helpers.Option
+open HelperFunctions.Deferred
 
 type private StoredDecorationSlot = (Slot * int option) option
 
@@ -244,135 +245,230 @@ type ChosenSet with
         |> ChosenSet.deserialize decorations weapons armor charms
 
 
-type SkillList = 
-  SkillList of (Skill * int) list
+type SkillList = SkillList of (Skill * int) list
 
-type StoredSkillList = 
-  (int * int) list
+type StoredSkillList = (int * int) list
 
 type SkillList with
-  static member serialize(SkillList skillList) : string = 
-    [ for (skill, count) in skillList -> skill.Id, count ] 
-    |> Thoth.Json.Encode.Auto.toString<StoredSkillList>
+    static member serialize(SkillList skillList) : string =
+        [ for (skill, count) in skillList -> skill.Id, count ]
+        |> Thoth.Json.Encode.Auto.toString<StoredSkillList>
 
-  static member deserialize(skills:Skill list) skillListString : SkillList option =
-    let maybeRawList = Thoth.Json.Decode.Auto.fromString<StoredSkillList> skillListString
-    let maybeTranslatedList = 
-      maybeRawList |> Result.map (fun rawList ->
-        SkillList 
-          [ for skId, count in rawList do
-            let maybePair = skills |> List.filter (fun skill -> skill.Id = skId) |> List.tryExactlyOne |> Option.map (fun skill -> skill, count)
-            match maybePair with
-            | Some pair -> yield pair
-            | None -> 
-              printfn "No Skill was found for skill Id %i" skId
-          ] 
-      )
-    
-    match maybeTranslatedList with
-    | Ok list -> Some list
-    | Error _ -> None
-    
-  static member storeToWebStorage(SkillList skillList) =
-    let serialized = SkillList.serialize (SkillList skillList)
-    Browser.WebStorage.sessionStorage.setItem ("skillList", serialized)
+    static member deserialize (skills: Skill list) skillListString : SkillList option =
+        let maybeRawList =
+            Thoth.Json.Decode.Auto.fromString<StoredSkillList> skillListString
 
-  static member readFromWebStorage(skills: Skill list) =
-    Browser.WebStorage.sessionStorage.getItem ("skillList") 
-    |> SkillList.deserialize skills  
-    |> Option.defaultValue (SkillList [])
+        let maybeTranslatedList =
+            maybeRawList
+            |> Result.map (fun rawList ->
+                SkillList [
+                    for skId, count in rawList do
+                        let maybePair =
+                            skills
+                            |> List.filter (fun skill -> skill.Id = skId)
+                            |> List.tryExactlyOne
+                            |> Option.map (fun skill -> skill, count)
+
+                        match maybePair with
+                        | Some pair -> yield pair
+                        | None -> printfn "No Skill was found for skill Id %i" skId
+                ])
+
+        match maybeTranslatedList with
+        | Ok list -> Some list
+        | Error _ -> None
+
+    static member storeToWebStorage(SkillList skillList) =
+        let serialized = SkillList.serialize (SkillList skillList)
+        Browser.WebStorage.sessionStorage.setItem ("skillList", serialized)
+
+    static member readFromWebStorage(skills: Skill list) =
+        Browser.WebStorage.sessionStorage.getItem ("skillList")
+        |> SkillList.deserialize skills
+        |> Option.defaultValue (SkillList [])
 
 
-type SearchStatus = 
-  | NotAsked
-  | Searching
-  | Found
-  | Failed
+type SearchStatus =
+    | NotAsked
+    | Searching
+    | Found
+    | Failed
 
 
-type UserData =
-  { Armor: Armor list
-    Charms: (Charm * CharmRank) list
+let inline asMapBy (keyGen: 'a -> int) (xs: 'a list) =
+    xs
+    |> List.groupBy (keyGen)
+    |> List.map (fun (id, a) -> (id, a |> List.tryExactlyOne |> Option.get))
+    |> Map.ofList
+
+let inline asMap (x: 'a list when 'a: (member Id: int)) = x |> asMapBy (fun a -> a.Id)
+
+
+type UserData = {
+    Armor: (Armor * bool) list
+    Charms: (Charm * int) list
     Decorations: (Decoration * int) list
-  }
-  with 
-    static member Default = 
-      { Armor = []
+} with
+
+    static member Default = {
+        Armor = []
         Charms = []
         Decorations = []
-      }
-    static member allItems skills armor (charms:Charm seq) decorations = 
-      { Armor = armor
-        Charms = charms |> List.ofSeq |> List.map (fun charm -> charm.Ranks |> List.ofArray |> List.map (fun cr -> charm, cr)) |> List.concat
-        Decorations = decorations |> allDecorations skills
-      }
+    }
 
-type StoredUserData = 
-  {
+    static member allItems skills (armor: Armor list) (charms: Charm seq) decorations = {
+        Armor = armor |> List.map (fun a -> a, true)
+        Charms =
+            charms
+            |> List.ofSeq
+            |> List.map (fun charm -> charm.Ranks |> Array.max |> (fun cr -> charm, cr.Level))
+        Decorations = decorations |> allDecorations skills
+    }
+
+    member this.ArmorMap = (lazy ([for a,b in this.Armor do if b then yield a] |> asMap)).Force()
+
+    member this.CharmMap =
+        (lazy (this.Charms |> asMapBy (fun ((charm: Charm), highestCharmLevel) -> charm.Id)))
+            .Force()
+
+    member this.DecorationMap =
+        (lazy
+            (this.Decorations
+             |> asMapBy (fun ((decoration: Decoration), decorationCount) -> decoration.Id)))
+            .Force()
+
+type StoredUserData = {
     Armor: int list
     Charms: (int * int) list
     Decorations: (int * int) list
-  }
+}
 
 type UserData with
-  static member serialize userData : string = 
-    let storageForm : StoredUserData = 
-      { Armor = [ for armorPiece in userData.Armor -> armorPiece.Id ]
-      ; Charms = [ for (charm, rank) in userData.Charms -> (charm.Id, rank.Level) ]
-      ; Decorations = [ for (decoration, count) in userData.Decorations -> decoration.Id, count ]
-      } 
-    storageForm |> Thoth.Json.Encode.Auto.toString
+    static member serialize userData : string =
+        let storageForm: StoredUserData = {
+            Armor = [ for armorPiece, hasArmorPiece in userData.Armor do if hasArmorPiece then yield armorPiece.Id ]
+            Charms = [ for (charm, highestCharmLevel) in userData.Charms -> (charm.Id, highestCharmLevel) ]
+            Decorations = [ for (decoration, count) in userData.Decorations -> decoration.Id, count ]
+        }
 
-  static member deserialize ((armor:Armor list), (charms:Charm list), (decorations: Decoration list)) (storedUserDataString : string) : UserData option = 
-    let storedUserData = Thoth.Json.Decode.Auto.fromString storedUserDataString
-    match storedUserData with
-    | Error _ -> None
-    | Ok (storedUserData:StoredUserData) -> 
-      let foundArmor = 
-        storedUserData.Armor |> traverseList ( fun armorId -> armor |> List.filter (fun a -> a.Id = armorId) |> List.tryExactlyOne )
-      let foundCharms = 
-        storedUserData.Charms 
-        |> traverseList
-          (fun (charmId, charmRank) ->
-            charms 
-            |> List.filter (fun c -> c.Id = charmId) 
-            |> List.tryExactlyOne 
-            |> Option.map (fun c -> c.Ranks |> Array.filter (fun cr -> cr.Level <= charmRank) |> Array.map (fun cr -> c, cr)) 
-            |> Option.map List.ofArray
-          )
-        |> Option.map List.concat
-        
-      let foundDecorations = 
-        storedUserData.Decorations |> traverseList
-          ( fun (decoId, decoCount) ->
-            decorations 
-            |> List.filter (fun decoration -> decoration.Id = decoId) 
-            |> List.tryExactlyOne 
-            |> Option.map (fun deco -> deco, decoCount)
-          )
+        storageForm |> Thoth.Json.Encode.Auto.toString
 
-      match foundArmor, foundCharms, foundDecorations with
-      | Some a, Some c, Some d ->
-        Some 
-          {
-            Armor = a
-            Charms = c 
-            Decorations = d
-          }
-      | _ -> None
+    static member deserialize
+        ((armor: Armor list), (charms: Charm list), (decorations: Decoration list))
+        (storedUserDataString: string)
+        : UserData option =
+        let storedUserData = Thoth.Json.Decode.Auto.fromString storedUserDataString
+        printfn $"{charms}"
+        match storedUserData with
+        | Error _ -> None
+        | Ok(storedUserData: StoredUserData) ->
+            let foundArmor =
+                [ for piece in armor -> (piece, (storedUserData.Armor |> List.exists (fun storedId -> storedId = piece.Id))) ]
+
+            let findMatchingCharm (charmId, maxCharmRank) = 
+              charms
+              |> List.filter (fun c -> c.Id = charmId)
+              |> List.tryExactlyOne
+              |> Option.map (fun c -> c, maxCharmRank)
+
+            let foundCharms =
+                storedUserData.Charms |> List.groupBy fst |> List.map (fun (id, idandcounts) -> id, idandcounts |> List.map snd |> List.max)
+                |> traverseList findMatchingCharm
+
+            let foundDecorations =
+                storedUserData.Decorations
+                |> traverseList (fun (decoId, decoCount) ->
+                    decorations
+                    |> List.filter (fun decoration -> decoration.Id = decoId)
+                    |> List.tryExactlyOne
+                    |> Option.map (fun deco -> deco, decoCount))
+
+            match foundArmor, foundCharms, foundDecorations with
+            | a, Some c, Some d ->
+                printfn "%A" c
+                Some {
+                    Armor = a
+                    Charms = c
+                    Decorations = d
+                }
+            | _ -> None
 
 
-  static member storeToWebStorage userData =
-    let serialized = UserData.serialize (userData)
-    Browser.WebStorage.sessionStorage.setItem ("userData", serialized)
+    static member storeToWebStorage userData =
+        let serialized = UserData.serialize (userData)
+        Browser.WebStorage.sessionStorage.setItem ("userData", serialized)
 
-  static member readFromWebStorage skills (armor:Armor list) (charms:Charm list) (decorations: Decoration list) =
-    let result = 
-      Browser.WebStorage.sessionStorage.getItem ("userData") 
-      |> UserData.deserialize (armor, charms, decorations) 
-    match result with
-    | Some result -> result
-    | None -> 
-      printfn "Failed to load user data from WebStorage! Defaulting to all items..."
-      UserData.allItems skills armor charms decorations
-    
+    static member readFromWebStorage (armor: Armor list) (charms: Charm list) (decorations: Decoration list) =
+        let result =
+            Browser.WebStorage.sessionStorage.getItem ("userData")
+            |> UserData.deserialize (armor, charms, decorations)
+        result
+
+type MHWDataType =
+    | Armor of Armor list
+    | ArmorSets of ArmorSet list
+    | Decorations of Decoration list
+    | Skills of Skill list
+    | Charms of Charm list
+    | Weapons of Weapon list
+
+type MHWData = {
+    ArmorMap: Map<int, Armor>
+    ArmorSets: ArmorSet list
+    DecorationMap: Map<int, Decoration>
+    Skills: Skill list
+    CharmMap: Map<int, Charm>
+    Weapons: Weapon list
+} with
+
+    member this.Armor = (lazy [ for (KeyValue(k, v)) in this.ArmorMap -> v ]).Force()
+
+    member this.Decorations =
+        (lazy [ for (KeyValue(k, v)) in this.DecorationMap -> v ]).Force()
+
+    member this.Charms = (lazy [ for (KeyValue(k, v)) in this.CharmMap -> v ]).Force()
+
+
+type LoadingMHWData = {
+    Armor: Deferred<Armor list, string>
+    ArmorSets: Deferred<ArmorSet list, string>
+    Decorations: Deferred<Decoration list, string>
+    Skills: Deferred<Skill list, string>
+    Charms: Deferred<Charm list, string>
+    Weapons: Deferred<Weapon list, string>
+} with
+
+    static member Default = {
+        Armor = Deferred.NotAsked
+        ArmorSets = Deferred.NotAsked
+        Decorations = Deferred.NotAsked
+        Skills = Deferred.NotAsked
+        Charms = Deferred.NotAsked
+        Weapons = Deferred.NotAsked
+    }
+
+    member this.isFullyLoaded =
+        this.Armor |> Deferred.isSuccessful
+        && this.ArmorSets |> Deferred.isSuccessful
+        && this.Decorations |> Deferred.isSuccessful
+        && this.Skills |> Deferred.isSuccessful
+        && this.Charms |> Deferred.isSuccessful
+        && this.Weapons |> Deferred.isSuccessful
+
+    member this.asFullyLoaded: PartialDeferred<LoadingMHWData, MHWData, string> =
+        match this.Armor, this.ArmorSets, this.Decorations, this.Skills, this.Charms, this.Weapons with
+        | Deferred.Success a,
+          Deferred.Success asets,
+          Deferred.Success d,
+          Deferred.Success s,
+          Deferred.Success c,
+          Deferred.Success w ->
+            PartialDeferred.Success {
+                ArmorMap = a |> asMap
+                ArmorSets = asets
+                DecorationMap = d |> asMap
+                Skills = s
+                CharmMap = c |> asMap
+                Weapons = w
+            }
+        | _ -> PartialDeferred.Failure "Tried to treat input data as fully loaded before ready"

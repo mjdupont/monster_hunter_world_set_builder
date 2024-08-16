@@ -68,7 +68,8 @@ let decorationAssignment =
 
             let slots = [ Slot 4; Slot 4; Slot 4 ] |> List.countBy id
 
-            let assignment = findDecorationsSatisfyingSkills skills requestedSkills slots availableDecorations
+            let assignment =
+                findDecorationsSatisfyingSkills skills requestedSkills slots availableDecorations
 
             let assignedDecorations =
                 assignment
@@ -114,7 +115,8 @@ let decorationAssignment =
             let slots =
                 [ Slot 4; Slot 4; Slot 4; Slot 4; Slot 2; Slot 1; Slot 1 ] |> List.countBy id
 
-            let assignment = findDecorationsSatisfyingSkills skills requestedSkills slots availableDecorations
+            let assignment =
+                findDecorationsSatisfyingSkills skills requestedSkills slots availableDecorations
 
             let assignedDecorations =
                 assignment
@@ -167,7 +169,8 @@ let decorationAssignment =
 
             let slots = [ Slot 4; Slot 4; Slot 4; Slot 1; Slot 1 ] |> List.countBy id
 
-            let assignment = findDecorationsSatisfyingSkills skills requestedSkills slots availableDecorations
+            let assignment =
+                findDecorationsSatisfyingSkills skills requestedSkills slots availableDecorations
 
             let expectedAssignment =
                 [
@@ -219,7 +222,8 @@ let decorationAssignment =
 
             let slots = [ Slot 4; Slot 4; Slot 4; Slot 4; Slot 1 ] |> List.countBy id
 
-            let assignment = findDecorationsSatisfyingSkills skills requestedSkills slots availableDecorations
+            let assignment =
+                findDecorationsSatisfyingSkills skills requestedSkills slots availableDecorations
 
             let expectedAssignment =
                 [
@@ -269,7 +273,8 @@ let decorationAssignment =
             let slots =
                 [ Slot 4; Slot 4; Slot 4; Slot 4; Slot 4; Slot 4; Slot 1 ] |> List.countBy id
 
-            let assignment = findDecorationsSatisfyingSkills skills requestedSkills slots availableDecorations
+            let assignment =
+                findDecorationsSatisfyingSkills skills requestedSkills slots availableDecorations
 
             let expectedAssignment =
                 [
@@ -351,7 +356,8 @@ let decorationAssignment =
             let threeSeconds () =
                 Async.Sleep(3000) |> Async.RunSynchronously
 
-            let assignment = findDecorationsSatisfyingSkills skills requestedSkills slots allDecorations
+            let assignment =
+                findDecorationsSatisfyingSkills skills requestedSkills slots allDecorations
 
 
             Expect.isFasterThan runAssignment threeSeconds "Took longer than three seconds to assign decorations"
@@ -412,7 +418,8 @@ let decorationAssignment =
                 let _ = findDecorationsSatisfyingSkills skills requestedSkills slots allDecorations
                 ()
 
-            let assignment = findDecorationsSatisfyingSkills skills requestedSkills slots allDecorations
+            let assignment =
+                findDecorationsSatisfyingSkills skills requestedSkills slots allDecorations
 
 
             Expect.isFasterThan runAssignment threeSeconds "Took longer than three seconds to assign decorations"
@@ -496,7 +503,8 @@ let decorationAssignment =
                 let _ = findDecorationsSatisfyingSkills skills requestedSkills slots allDecorations
                 ()
 
-            let assignment = findDecorationsSatisfyingSkills skills requestedSkills slots allDecorations
+            let assignment =
+                findDecorationsSatisfyingSkills skills requestedSkills slots allDecorations
 
             Expect.isFasterThan runAssignment threeSeconds "Took longer than three seconds to assign decorations"
             Expect.isSome assignment "Failed to find a decoration assignment"
@@ -530,19 +538,15 @@ let decorationAssignment =
                          |> (fun x -> int (ceil (float x) / (float level))))
                      |> List.min))
 
-            let slots =
-                [
-                  Slot 4, 5;
-                  Slot 1, 2;
-                  Slot 2, 2
-                ]
+            let slots = [ Slot 4, 5; Slot 1, 2; Slot 2, 2 ]
 
 
             let runAssignment () =
                 let _ = findDecorationsSatisfyingSkills skills requestedSkills slots allDecorations
                 ()
 
-            let assignment = findDecorationsSatisfyingSkills skills requestedSkills slots allDecorations
+            let assignment =
+                findDecorationsSatisfyingSkills skills requestedSkills slots allDecorations
 
             Expect.isFasterThan runAssignment threeSeconds "Took longer than three seconds to assign decorations"
             Expect.isSome assignment "Failed to find a decoration assignment"

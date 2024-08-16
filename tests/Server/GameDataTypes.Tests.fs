@@ -71,7 +71,8 @@ let gameDataTypes =
 
 
 
-        testCase "decoContainsSkill/decoContainsOtherSkill: Can detect if a decoration contains, or does not contain, a given skill"
+        testCase
+            "decoContainsSkill/decoContainsOtherSkill: Can detect if a decoration contains, or does not contain, a given skill"
         <| fun _ ->
             let decorationsWithoutOtherSkills =
                 [
@@ -278,4 +279,3 @@ let gameDataTypes =
                 expectedResults
                 "Skills should correctly identify the slot size of their singleton decoration if it exists"
     ]
-    

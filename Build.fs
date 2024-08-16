@@ -45,7 +45,9 @@ Target.create "Azure" (fun _ ->
         add_resource web
     }
 
-    deployment |> Deploy.execute "MonsterHunterSetBuilder" Deploy.NoParameters |> ignore)
+    deployment
+    |> Deploy.execute "MonsterHunterSetBuilder" Deploy.NoParameters
+    |> ignore)
 
 Target.create "Run" (fun _ ->
     run dotnet [ "build" ] sharedPath

@@ -3,16 +3,20 @@ namespace Helpers
 module Prelude =
     let flip f a b = f b a
 
-    // let memoizeConcurrent f = 
+    // let memoizeConcurrent f =
     //   let cache = System.Collections.Concurrent.ConcurrentDictionary()
     //   fun x -> cache.GetOrAdd(x, lazy f x).Value
 
     let memoize f =
-      let cache = new System.Collections.Generic.Dictionary<_,_>()
-      fun x ->
-        match cache.TryGetValue x with
-        | true, result -> result
-        | _ -> let result = f x in cache.Add(x, result); result
+        let cache = new System.Collections.Generic.Dictionary<_, _>()
+
+        fun x ->
+            match cache.TryGetValue x with
+            | true, result -> result
+            | _ ->
+                let result = f x in
+                cache.Add(x, result)
+                result
 
 module Async =
     let map f computation =
@@ -21,10 +25,10 @@ module Async =
 
 module List =
 
-    let tryMax xs = 
-      match xs with 
-      | [] -> None
-      | _ -> Some (List.max xs)
+    let tryMax xs =
+        match xs with
+        | [] -> None
+        | _ -> Some(List.max xs)
 
     let join (on: 'x -> 'y -> bool) (xs: 'x List) (ys: 'y List) =
         let pairs = ys |> List.allPairs xs
@@ -139,10 +143,10 @@ module List =
 module Option =
     let (>>=) o f = Option.bind f o
 
-    let maybeDefaultValue (firstChoice: 'a option) (secondChoice: 'a option) = 
-      match firstChoice with
-      | Some o -> Some o
-      | None -> secondChoice 
+    let maybeDefaultValue (firstChoice: 'a option) (secondChoice: 'a option) =
+        match firstChoice with
+        | Some o -> Some o
+        | None -> secondChoice
 
     let traverseList (f: 'a -> 'b option) (ls: 'a list) : 'b list option =
         let folder (state: 'b list option) (next: 'a) =
@@ -152,11 +156,11 @@ module Option =
 
     let sequenceList ls = traverseList id ls
 
-    let withFallback (fallback: 'a -> 'b option) (success: 'a -> 'b option) = 
-      fun a ->
-        match success a with
-        | Some answer -> Some answer
-        | None -> fallback a
+    let withFallback (fallback: 'a -> 'b option) (success: 'a -> 'b option) =
+        fun a ->
+            match success a with
+            | Some answer -> Some answer
+            | None -> fallback a
 
 
 type SymmetricMatrix<'Key, 'Value when 'Key: comparison> = private {

@@ -73,7 +73,8 @@ type Decoration = {
     Skills: SkillRank[]
     IconUri: string option
 } with
-  override this.ToString() = this.Name
+
+    override this.ToString() = this.Name
 
 type ArmorType =
     | Headgear
@@ -122,7 +123,8 @@ type Armor = {
 // ; Crafting: ArmorCraftingInfo
 // ; Attributes: ArmorAttributes
 } with
-  override this.ToString() = this.Name
+
+    override this.ToString() = this.Name
 
 type CharmRank = {
     Level: int
@@ -137,7 +139,9 @@ type Charm = {
     Slug: string
     Name: string
     Ranks: CharmRank[]
-} with override this.ToString() = this.Name 
+} with
+
+    override this.ToString() = this.Name
 
 type ArmorSetBonusRank = { Pieces: int; Skill: SkillRank }
 
@@ -163,7 +167,8 @@ type Skill = {
     Description: string
     Ranks: SkillRank[]
 } with
-  override this.ToString() = this.Name
+
+    override this.ToString() = this.Name
 
 [<StructuredFormatDisplay("{Name}")>]
 type Weapon = {
@@ -176,7 +181,8 @@ type Weapon = {
     Slots: Slot[]
 // Rest to Follow
 } with
-  override this.ToString() = this.Name
+
+    override this.ToString() = this.Name
 
 
 ///
@@ -233,6 +239,7 @@ let isSingletonDecoration skill decoration =
 ///
 let singletonDecoration decorations skill =
     decorations |> List.filter (isSingletonDecoration skill) |> List.tryExactlyOne
+
 ///
 /// Calclulates the slot size of the singleton decoration of a given skill in a list of decorations.
 ///
@@ -255,24 +262,27 @@ let hardDecorationExistsForSkill skills decorations skill =
 
 ///
 /// Calculates the highest level of each skill.
-/// 
+///
 let skillCaps skills =
     skills
     |> List.map (fun skill -> skill, (skill.Ranks |> Array.map (fun sr -> sr.Level) |> Array.max))
     |> Map.ofList
 
-let allDecorations skills (decorations:Decoration list) =
+
+let maxSkillLevelOfDecoration skills decoration =
+    decoration
+    |> containedSkills skills
+    |> List.map (fun (skill, level) ->
+        skillCaps skills
+        |> Map.tryFind skill
+        |> Option.defaultValue 0
+        |> (fun x -> int (ceil (float x) / (float level))))
+    |> List.min
+
+let allDecorations skills (decorations: Decoration list) =
     decorations
-    |> List.map (fun decoration ->
-        decoration,
-        (decoration
-          |> containedSkills skills
-          |> List.map (fun (skill, level) ->
-              skillCaps skills
-              |> Map.tryFind skill
-              |> Option.defaultValue 0
-              |> (fun x -> int (ceil (float x) / (float level))))
-          |> List.min))
+    |> List.map (fun decoration -> decoration, maxSkillLevelOfDecoration skills decoration)
+        
 
 
 
@@ -285,44 +295,42 @@ let asItems (xs: ('a * int) seq) = [
 
 /// This module is intended to describe data types relating to parsing data from excel records from Monster Hunter World
 module MHWGameData =
-  type ArmorType = 
-  | Regular
-  | FullSet
+    type ArmorType =
+        | Regular
+        | FullSet
 
-  type EquipSlot = 
-  | Head
-  | Chest
-  | Arms
-  | Waist
-  | Legs
-  | Charm
+    type EquipSlot =
+        | Head
+        | Chest
+        | Arms
+        | Waist
+        | Legs
+        | Charm
 
-  type Gender = 
-  | Male
-  | Female
-  | Unisex
-  
-  type Resistances = 
-   {
-    Fire: int
-    Water: int
-    Ice: int
-    Thunder: int
-    Dragon: int
-   }
+    type Gender =
+        | Male
+        | Female
+        | Unisex
 
-  type Armor = 
-    { 
-      Name : string
-      Index : uint32
-      Type : ArmorType
-      EquipSlot : EquipSlot
-      Rarity : byte 
-      Defense : int
-      Resistances : Resistances
-      //ModelID1 : int
-      Slots : Slot list
-      Set_Skill : int
-      Gender: Gender
-      Description: string
+    type Resistances = {
+        Fire: int
+        Water: int
+        Ice: int
+        Thunder: int
+        Dragon: int
+    }
+
+    type Armor = {
+        Name: string
+        Index: uint32
+        Type: ArmorType
+        EquipSlot: EquipSlot
+        Rarity: byte
+        Defense: int
+        Resistances: Resistances
+        //ModelID1 : int
+        Slots: Slot list
+        Set_Skill: int
+        Gender: Gender
+        Description: string
     }

@@ -15,7 +15,7 @@ let all =
         APIDataTypes.Tests.gameDataTypes
         DecorationAssignment.Tests.decorationAssignment
         SetSearchLogic.Tests.setSearchLogic
-        
+
     ]
 
 let writeData () =
