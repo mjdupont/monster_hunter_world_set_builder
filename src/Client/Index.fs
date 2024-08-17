@@ -144,7 +144,11 @@ let update msg (model: Model) =
                 model with
                     GameData = loadingMHWData.asFullyLoaded
             },
-            Cmd.batch [ Cmd.ofMsg LoadChosenSetFromWebStorage; Cmd.ofMsg LoadSkillListFromWebStorage; Cmd.ofMsg LoadUserDataFromWebStorage ]
+            Cmd.batch [
+                Cmd.ofMsg LoadChosenSetFromWebStorage
+                Cmd.ofMsg LoadSkillListFromWebStorage
+                Cmd.ofMsg LoadUserDataFromWebStorage
+            ]
         | _ -> model, Cmd.none
 
     | LoadChosenSetFromWebStorage ->
@@ -190,8 +194,10 @@ let update msg (model: Model) =
         let loadedUserData =
             match model.GameData with
             | PartialDeferred.Success gameData ->
-                UserData.readFromWebStorage gameData.Armor gameData.Charms gameData.Decorations 
-                |> Option.defaultValue (UserData.allItems gameData.Skills gameData.Armor gameData.Charms gameData.Decorations)
+                UserData.readFromWebStorage gameData.Armor gameData.Charms gameData.Decorations
+                |> Option.defaultValue (
+                    UserData.allItems gameData.Skills gameData.Armor gameData.Charms gameData.Decorations
+                )
             | _ -> UserData.Default
 
         { model with UserData = loadedUserData }, Cmd.none
@@ -213,21 +219,17 @@ let update msg (model: Model) =
         match model.GameData, model.ChosenSet.Weapon with
         | PartialDeferred.Success gameData, Some weapon ->
             let armor = (model.UserData.Armor |> List.filter snd |> List.map fst |> armorByType)
-            let charms = (model.UserData.Charms |> List.map (fun (c, maxR) -> c, c.Ranks |> Array.filter (fun cr -> cr.Level = maxR) |> Array.head))
+
+            let charms =
+                (model.UserData.Charms
+                 |> List.map (fun (c, maxR) -> c, c.Ranks |> Array.filter (fun cr -> cr.Level = maxR) |> Array.head))
+
             let decorations = model.UserData.Decorations
             printfn "Armor %A\t" armor
             printfn "Charms %A\t" charms
             printfn "Decorations %A\t" decorations
-            match
-                assignArmor3
-                    1
-                    gameData.Skills
-                    model.ChosenSet
-                    armor
-                    charms                    
-                    decorations
-                    requestedSkills
-            with
+
+            match assignArmor3 1 gameData.Skills model.ChosenSet armor charms decorations requestedSkills with
             | [] -> model, Cmd.ofMsg (SetSearchStatus Failed)
             | set :: rest ->
                 { model with ChosenSet = set },
@@ -352,7 +354,7 @@ let view (model: Model) dispatch =
                     Update = updateArmor
                 }
             |}
-        
+
         Html.section [
             prop.className "h-screen w-screen"
             prop.style [
@@ -362,7 +364,11 @@ let view (model: Model) dispatch =
                 style.backgroundPosition "no-repeat center center fixed"
             ]
             prop.children [
-                UserEquipmentSelector.Component {| UserData = model.UserData; GameData = gameData; UpdateUserData = (UpdateUserData >> dispatch) |}
+                UserEquipmentSelector.Component {|
+                    UserData = model.UserData
+                    GameData = gameData
+                    UpdateUserData = (UpdateUserData >> dispatch)
+                |}
                 Html.a [
                     prop.href "https://safe-stack.github.io/"
                     prop.className "absolute block ml-12 h-12 w-12 bg-teal-300 hover:cursor-pointer hover:bg-teal-400"

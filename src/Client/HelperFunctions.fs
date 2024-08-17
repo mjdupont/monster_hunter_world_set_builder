@@ -31,14 +31,18 @@ module Deferred =
 
 type PropDrill<'a> = { Value: 'a; Update: 'a -> unit }
 
-let inline matchesByNameOrSkillsByPredicate (namePred: 'a -> string) (skillsPred: 'a -> string list) (queryString:string) (element:'a) : bool =
-  [ element |> namePred ]
-  @ (element |> skillsPred)
-  |> List.exists (fun nameStr -> nameStr.ToLowerInvariant().StartsWith(queryString.ToLowerInvariant())) 
-    
-let inline matchesByNameOrSkills (queryString:string) (element: ^a when ^a : (member Name : string) and ^a : (member Skills : APIDataTypes.SkillRank array)) : bool = 
-  [ yield element.Name;
-    for sr in element.Skills -> sr.SkillName
-  ] 
-  |> List.exists (fun nameStr -> nameStr.ToLowerInvariant().StartsWith(queryString.ToLowerInvariant())) 
-  
+let inline matchesByNameOrSkillsByPredicate
+    (namePred: 'a -> string)
+    (skillsPred: 'a -> string list)
+    (queryString: string)
+    (element: 'a)
+    : bool =
+    [ element |> namePred ] @ (element |> skillsPred)
+    |> List.exists (fun nameStr -> nameStr.ToLowerInvariant().StartsWith(queryString.ToLowerInvariant()))
+
+let inline matchesByNameOrSkills
+    (queryString: string)
+    (element: ^a when ^a: (member Name: string) and ^a: (member Skills: APIDataTypes.SkillRank array))
+    : bool =
+    [ yield element.Name; for sr in element.Skills -> sr.SkillName ]
+    |> List.exists (fun nameStr -> nameStr.ToLowerInvariant().StartsWith(queryString.ToLowerInvariant()))

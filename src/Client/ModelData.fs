@@ -325,7 +325,15 @@ type UserData = {
         Decorations = decorations |> allDecorations skills
     }
 
-    member this.ArmorMap = (lazy ([for a,b in this.Armor do if b then yield a] |> asMap)).Force()
+    member this.ArmorMap =
+        (lazy
+            ([
+                for a, b in this.Armor do
+                    if b then
+                        yield a
+             ]
+             |> asMap))
+            .Force()
 
     member this.CharmMap =
         (lazy (this.Charms |> asMapBy (fun ((charm: Charm), highestCharmLevel) -> charm.Id)))
@@ -346,8 +354,14 @@ type StoredUserData = {
 type UserData with
     static member serialize userData : string =
         let storageForm: StoredUserData = {
-            Armor = [ for armorPiece, hasArmorPiece in userData.Armor do if hasArmorPiece then yield armorPiece.Id ]
-            Charms = [ for (charm, highestCharmLevel) in userData.Charms -> (charm.Id, highestCharmLevel) ]
+            Armor = [
+                for armorPiece, hasArmorPiece in userData.Armor do
+                    if hasArmorPiece then
+                        yield armorPiece.Id
+            ]
+            Charms = [
+                for (charm, highestCharmLevel) in userData.Charms -> (charm.Id, highestCharmLevel)
+            ]
             Decorations = [ for (decoration, count) in userData.Decorations -> decoration.Id, count ]
         }
 
@@ -359,20 +373,25 @@ type UserData with
         : UserData option =
         let storedUserData = Thoth.Json.Decode.Auto.fromString storedUserDataString
         printfn $"{charms}"
+
         match storedUserData with
         | Error _ -> None
         | Ok(storedUserData: StoredUserData) ->
-            let foundArmor =
-                [ for piece in armor -> (piece, (storedUserData.Armor |> List.exists (fun storedId -> storedId = piece.Id))) ]
+            let foundArmor = [
+                for piece in armor ->
+                    (piece, (storedUserData.Armor |> List.exists (fun storedId -> storedId = piece.Id)))
+            ]
 
-            let findMatchingCharm (charmId, maxCharmRank) = 
-              charms
-              |> List.filter (fun c -> c.Id = charmId)
-              |> List.tryExactlyOne
-              |> Option.map (fun c -> c, maxCharmRank)
+            let findMatchingCharm (charmId, maxCharmRank) =
+                charms
+                |> List.filter (fun c -> c.Id = charmId)
+                |> List.tryExactlyOne
+                |> Option.map (fun c -> c, maxCharmRank)
 
             let foundCharms =
-                storedUserData.Charms |> List.groupBy fst |> List.map (fun (id, idandcounts) -> id, idandcounts |> List.map snd |> List.max)
+                storedUserData.Charms
+                |> List.groupBy fst
+                |> List.map (fun (id, idandcounts) -> id, idandcounts |> List.map snd |> List.max)
                 |> traverseList findMatchingCharm
 
             let foundDecorations =
@@ -386,6 +405,7 @@ type UserData with
             match foundArmor, foundCharms, foundDecorations with
             | a, Some c, Some d ->
                 printfn "%A" c
+
                 Some {
                     Armor = a
                     Charms = c
@@ -402,6 +422,7 @@ type UserData with
         let result =
             Browser.WebStorage.sessionStorage.getItem ("userData")
             |> UserData.deserialize (armor, charms, decorations)
+
         result
 
 type MHWDataType =

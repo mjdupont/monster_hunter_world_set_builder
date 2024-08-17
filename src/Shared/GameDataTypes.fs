@@ -282,7 +282,7 @@ let maxSkillLevelOfDecoration skills decoration =
 let allDecorations skills (decorations: Decoration list) =
     decorations
     |> List.map (fun decoration -> decoration, maxSkillLevelOfDecoration skills decoration)
-        
+
 
 
 

@@ -33,30 +33,15 @@ module Decoration =
             let matchingDecoration = decorations |> List.filter (fun d -> d.Name = displayValue)
             matchingDecoration |> List.tryHead
 
-        let containsSkill (decoration: Decoration option) (searchQuery: string) =
-            match decoration with
-            | None -> false
-            | Some decoration ->
-                decoration.Skills
-                |> Array.exists (fun skill ->
-                    skill.SkillName
-                        .ToLowerInvariant()
-                        .Replace(" ", "")
-                        .Contains(searchQuery.ToLowerInvariant().Replace(" ", "")))
-
-        let containsSkillSimple (decoration: Decoration option) (searchQuery: string) =
-            match decoration with
-            | None -> false
-            | Some decoration ->
-                decoration.Skills
-                |> Array.exists (fun skill ->
-                    (skill.SkillName.ToLowerInvariant()).StartsWith(searchQuery.ToLowerInvariant()))
-
-
         let filterOptions (item: SelectItem) (searchQuery: string) =
             not item.disabled
             && ((item.name.ToLowerInvariant()).Contains(searchQuery.ToLowerInvariant())
-                || (containsSkillSimple (findDecorationFromId item.value) searchQuery))
+                || (
+                    (findDecorationFromId item.value) 
+                    |> Option.map (matchesByNameOrSkills searchQuery)
+                    |> Option.defaultValue false
+                  )
+                )
 
         let imageUrlByValue (propertyValue: string) : string =
             let decoration = findDecorationFromId propertyValue
