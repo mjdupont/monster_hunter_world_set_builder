@@ -24,6 +24,7 @@
     <Compile Include="Components\DecorationSlots.fs" />
     <Compile Include="Components\Weapon.fs" />
     <Compile Include="Components\SearchStatus.fs" />
+    <Compile Include="Components\ArmorSetSkillsDisplay.fs" />
     <Compile Include="Components\WeaponBuilder.fs" />
     <Compile Include="Components\Armor.fs" />
     <Compile Include="Components\Charm.fs" />

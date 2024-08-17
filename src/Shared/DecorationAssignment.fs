@@ -3,6 +3,7 @@ module DecorationAssignment
 open APIDataTypes
 open Helpers
 open FSharp.Core
+open GameData.APIData
 
 
 let inline skillContribution skills remainingSkillNeed (skillSource: 'a when 'a: (member Skills: SkillRank array)) =

@@ -11,6 +11,8 @@ open ModelData
 open Components
 open HelperFunctions.Deferred
 open SetSearchLogic
+open Feliz
+open GameData.APIData
 
 type Model = {
     GameData: PartialDeferred<LoadingMHWData, MHWData, string>
@@ -247,8 +249,6 @@ let update msg (model: Model) =
         do UserData.storeToWebStorage userData
         { model with UserData = userData }, Cmd.none
 
-open Feliz
-
 let view (model: Model) dispatch =
 
     match model.GameData with
@@ -256,57 +256,11 @@ let view (model: Model) dispatch =
     | PartialDeferred.InProgress _ -> Html.text "Loading..."
     | PartialDeferred.Failure f -> Html.text (sprintf "Failed with \"%s\" and maybe more errors" f)
     | PartialDeferred.Success gameData ->
-        let armorSetBonuses =
-            model.ChosenSet |> ChosenSet.armorSetBonuses gameData.ArmorSets
-
-        let totalSkills = (model.ChosenSet |> ChosenSet.allSkillRanks |> accumulateSkills)
-
-        let totalSkillsElement = [
-            for skill in totalSkills do
-                let skillFromData =
-                    gameData.Skills
-                    |> Seq.filter (fun skillData -> skillData.Id = skill.Skill)
-                    |> Seq.tryExactlyOne
-
-                let skillColor =
-                    match skillFromData with
-                    | None -> "black"
-                    | Some skillData ->
-                        let maxLevel =
-                            skillData.Ranks
-                            |> Seq.sortByDescending (fun sr -> sr.Level)
-                            |> Seq.head
-                            |> (fun sr -> sr.Level)
-
-                        match skill with
-                        | s when s.Level = maxLevel -> "green"
-                        | s when s.Level > maxLevel -> "red"
-                        | _ -> "black"
-
-                yield
-                    Html.div [
-                        prop.className ""
-                        prop.children [
-                            Html.h3 [
-                                prop.style [ style.color skillColor ]
-                                prop.text (sprintf "%s: %i" skill.SkillName skill.Level)
-                            ]
-                        ]
-                    ]
-        ]
-
-        let armorSetSkillsElement = [
-            for bonus, rank in armorSetBonuses ->
-                Html.div [
-                    prop.className ""
-                    prop.children [
-                        Html.h2 [
-                            prop.style [ style.color "black" ]
-                            prop.text (sprintf "%s - %s" bonus.Name rank.Skill.SkillName)
-                        ]
-                    ]
-                ]
-        ]
+        let sortedSkills = partitionSkills gameData.ArmorSets gameData.Decorations gameData.Skills
+        let armorSetSkills = sortedSkills.ArmorSetSkills
+        let armorSetAndDecorationSkills = sortedSkills.ArmorSetAndDecorationSkills
+        let armorUniqueSkills = sortedSkills.ArmorUniqueSkills
+        let decorationSkills = sortedSkills.DecorationSkills
 
         let updateArmorPiece (armorType: ArmorType) newPiece =
             match armorType with
@@ -377,10 +331,7 @@ let view (model: Model) dispatch =
                 Html.div [
                     prop.className "content flex flex-row h-full w-full gap-8"
                     prop.children [
-                        Html.div [
-                            prop.className "armor-summary m-auto bg-white/80 rounded-md shadow-md p-4"
-                            prop.children ([ armorSetSkillsElement; totalSkillsElement ] |> List.concat)
-                        ]
+                        ArmorSetSkillsDisplay.Component {| ChosenSet= model.ChosenSet; GameData = gameData |}
                         Html.div [
                             prop.className
                                 "armorsetbuilder m-auto flex flex-col items-center stretch center center w-max bg-white/80 rounded-md shadow-md"
@@ -430,8 +381,8 @@ let view (model: Model) dispatch =
                                 "armorsetbuilder m-auto flex flex-col items-center stretch center center w-max bg-white/80 rounded-md shadow-md"
                             prop.children [
                                 SetSearcher.Component {|
-                                    Skills = gameData.Skills
-                                    SkillList = model.SkillList
+                                    Skills = decorationSkills @ armorUniqueSkills @ armorSetAndDecorationSkills
+                                    SkillList = (model.SkillList |> (fun (SkillList sl) -> SkillList (sl |> List.sortBy (fun (skill:Skill, level) -> skill.Name))))
                                     UpdateSkillList = (UpdateSkillList >> dispatch)
                                     SubmitSkills =
                                         (fun skills ->

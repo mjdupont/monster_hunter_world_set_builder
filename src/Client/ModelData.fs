@@ -8,6 +8,7 @@ open APIDataTypes
 open ModelData
 open Helpers.Option
 open HelperFunctions.Deferred
+open GameData.APIData
 
 type private StoredDecorationSlot = (Slot * int option) option
 

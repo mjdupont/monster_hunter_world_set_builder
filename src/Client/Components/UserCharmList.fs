@@ -64,7 +64,7 @@ module UserCharmList =
                                     prop.max (charm.Ranks |> Array.map (fun cr -> cr.Level) |> Array.max)
                                     prop.onChange (updateCharms charm)
                                     prop.value maxOwnedRank
-                                    prop.style [ style.color "black"; style.flexShrink 0 ]
+                                    prop.style [ style.color "black"; style.flexShrink 0; style.width 32 ]
                                 ]
                             ]
                         ]

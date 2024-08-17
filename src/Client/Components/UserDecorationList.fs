@@ -25,6 +25,11 @@ module UserDecorationList =
                     pDecoration, pCount)
             |> props.SetDecorations
 
+        let colorFromCount max count = 
+          if count = max then "gold"
+          else if count < max && count > 0 then "white"
+          else "gray"
+
         Html.div [
             prop.className [ "h-full" ]
             prop.style [ style.overflowY.scroll; style.paddingRight 14 ]
@@ -43,6 +48,7 @@ module UserDecorationList =
                         (props.Decorations
                          |> List.filter (fun ((decoration, count), max) -> matchesByNameOrSkills searchWord decoration)) ->
                         Html.div [
+                            prop.style [style.color (colorFromCount max count) ]
                             prop.className "user-decoration-count-selector flex justify-between"
                             prop.children [
                                 Html.label [
@@ -56,7 +62,7 @@ module UserDecorationList =
                                     prop.max max
                                     prop.onChange (updateCount decoration)
                                     prop.value count
-                                    prop.style [ style.color "black"; style.flexShrink 0 ]
+                                    prop.style [ style.color "black"; style.flexShrink 0; style.width 32 ]
                                 ]
                             ]
                         ]

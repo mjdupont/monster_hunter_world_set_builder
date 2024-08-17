@@ -1,6 +1,7 @@
 module ModelData
 
 open APIDataTypes
+open GameData.APIData
 
 type DecorationSlot = (Slot * Decoration option) option
 

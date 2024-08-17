@@ -167,8 +167,16 @@ type Skill = {
     Description: string
     Ranks: SkillRank[]
 } with
-
     override this.ToString() = this.Name
+
+    
+type SkillCategory = 
+  | ArmorSetSkill
+  | ArmorUniqueSkill
+  | DecorationSkill
+  | ArmorSetAndDecorationSkill
+  | ArmorSetAndUniqueSkill
+
 
 [<StructuredFormatDisplay("{Name}")>]
 type Weapon = {
@@ -181,117 +189,9 @@ type Weapon = {
     Slots: Slot[]
 // Rest to Follow
 } with
-
     override this.ToString() = this.Name
 
 
-///
-/// Compares a SkillRank to a Skill to determine if the SkillRank is of the skill.
-/// Used due to SkillRank having Id and Skill, which are different, and confusing, and prone to bugs.
-///
-let skillRankOfSkill (skill: Skill) (sr: SkillRank) = sr.Skill = skill.Id
-
-///
-/// Returns the skills contained in an object that contains skills, along with their levels.
-///
-let inline containedSkills (skills: Skill list) (skillSource: 'a when 'a: (member Skills: SkillRank array)) =
-    skillSource.Skills
-    |> Array.choose (fun decoSr ->
-        skills
-        |> List.filter (fun sk -> skillRankOfSkill sk decoSr)
-        |> List.tryExactlyOne
-        |> Option.map (fun sk -> sk, decoSr.Level))
-    |> List.ofArray
-
-///
-/// Check if a given decoration provides a given skill.
-///
-let decoContainsSkill (skill: Skill) (deco: Decoration) =
-    deco.Skills |> Array.filter (skillRankOfSkill skill) |> (not << Array.isEmpty)
-
-///
-/// Check if a given decoration has any skill that is not the provided skill.
-///
-let decoContainsOtherSkill (skill: Skill) (deco: Decoration) =
-    deco.Skills
-    |> Array.filter (not << (skillRankOfSkill skill))
-    |> (not << Array.isEmpty)
-
-///
-/// Calculates the level of a particular skill in a decoration. If the skill is not present, returns None.
-///
-let decoSkillLevel (skill: Skill) (deco: Decoration) =
-    deco.Skills
-    |> Array.filter (skillRankOfSkill skill)
-    |> Array.tryExactlyOne
-    |> Option.map (fun sr -> sr.Level)
-
-///
-/// Checks if the given decoration is a "singleton" - The decoration is not size 4, contains only 1 skill, and that skill is level 1.
-///
-let isSingletonDecoration skill decoration =
-    (decoContainsSkill skill decoration)
-    && (not (decoContainsOtherSkill skill decoration))
-    && (decoration |> decoSkillLevel skill) = Some 1
-
-///
-/// Finds the singleton decoration for a given skill in a list of decorations, if it exists.
-///
-let singletonDecoration decorations skill =
-    decorations |> List.filter (isSingletonDecoration skill) |> List.tryExactlyOne
-
-///
-/// Calclulates the slot size of the singleton decoration of a given skill in a list of decorations.
-///
-let decorationSlotSize decorations skill =
-    singletonDecoration decorations skill |> Option.map (fun deco -> Slot deco.Slot)
-
-///
-/// Determines if a hard decoration exists for the given skill.
-///
-let hardDecorationExistsForSkill skills decorations skill =
-    decorations
-    |> List.filter (decoContainsSkill skill)
-    |> List.choose (
-        (containedSkills skills)
-        >> List.filter (fun (skill', level) -> skill = skill' && level = 3)
-        >> List.tryExactlyOne
-    )
-    |> List.tryExactlyOne
-    |> Option.isSome
-
-///
-/// Calculates the highest level of each skill.
-///
-let skillCaps skills =
-    skills
-    |> List.map (fun skill -> skill, (skill.Ranks |> Array.map (fun sr -> sr.Level) |> Array.max))
-    |> Map.ofList
-
-
-let maxSkillLevelOfDecoration skills decoration =
-    decoration
-    |> containedSkills skills
-    |> List.map (fun (skill, level) ->
-        skillCaps skills
-        |> Map.tryFind skill
-        |> Option.defaultValue 0
-        |> (fun x -> int (ceil (float x) / (float level))))
-    |> List.min
-
-let allDecorations skills (decorations: Decoration list) =
-    decorations
-    |> List.map (fun decoration -> decoration, maxSkillLevelOfDecoration skills decoration)
-
-
-
-
-let asCounts (xs: 'a seq) = xs |> Seq.countBy id |> List.ofSeq
-
-let asItems (xs: ('a * int) seq) = [
-    for x, count in xs do
-        for i in 1..count -> x
-]
 
 /// This module is intended to describe data types relating to parsing data from excel records from Monster Hunter World
 module MHWGameData =

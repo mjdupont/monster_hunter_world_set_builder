@@ -5,6 +5,7 @@ open Helpers
 open ModelData
 open DecorationAssignment
 open Helpers.Prelude
+open GameData.APIData
 
 let armorByType armor =
     armor |> List.groupBy (fun a -> a.Type) |> Map.ofSeq
@@ -344,7 +345,7 @@ let rec assignArmor3'
     let reach =
         calculateReachOfChosenSet skills decorations accumulatedSet charms armorByType remainingSkillNeed
 
-    printfn "reach:%i distance:%i" reach distance
+    //printfn "reach:%i distance:%i" reach distance
 
     let tryRewindSet () =
         match accumulatedSet |> tryRemoveLastAssignment fixedSet with
@@ -379,7 +380,7 @@ let assignArmor3
         printfn "Accumulated sets: %i" (List.length accumulatedSets)
 
         match assignArmor3' skills chosenSet decorations requestedSkills charms' armor' workingSet' with
-        | Some(finishedSet, remainingArmor, remainingCharms) when accumulatedSets |> List.length >= n_to_find ->
+        | Some(finishedSet, remainingArmor, remainingCharms) when (finishedSet :: accumulatedSets) |> List.length >= n_to_find ->
             printfn $"Found {n_to_find} sets!"
             finishedSet :: accumulatedSets
 

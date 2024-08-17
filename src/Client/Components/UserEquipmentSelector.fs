@@ -4,7 +4,7 @@ module UserEquipmentSelector =
     open Feliz
     open ModelData
     open Components.UIElements
-    open APIDataTypes
+    open GameData.APIData
 
 
     [<ReactComponent>]

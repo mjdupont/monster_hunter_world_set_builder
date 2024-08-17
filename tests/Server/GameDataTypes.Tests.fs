@@ -3,6 +3,7 @@ module APIDataTypes.Tests
 open Shared
 open SetSearchLogic
 open APIDataTypes
+open GameData.APIData
 open Helpers
 open Server
 open DataAccess
