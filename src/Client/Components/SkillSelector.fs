@@ -39,7 +39,7 @@ module SkillSelector =
 
 
         Html.div [
-            prop.className "flex flex-row gap-8"
+            prop.className "flex flex-row gap-8 justify-center"
             prop.children [
                 SelectSearch.selectSearch [
                     selectSearch.search true
@@ -53,7 +53,7 @@ module SkillSelector =
                          |> Option.map (fun skill -> skill.Id |> sprintf "%i"))
                         |> Option.defaultValue ""
                     )
-                    selectSearch.onChange (findSkillFromId >> updateSkill)
+                    selectSearch.onChange (findSkillFromId >> addSkillAndClear)
                     selectSearch.options [
                         for skill in props.Skills ->
                             {
@@ -62,33 +62,6 @@ module SkillSelector =
                                 disabled = false
                             }
                     ]
-                ]
-                match skillAndRank with
-                | Some(skill, rank) ->
-                    Html.div [
-                        prop.style [ style.width 70; style.fontSize 8 ]
-                        prop.children [
-                            SelectSearch.selectSearch [
-                                selectSearch.search true
-                                selectSearch.value (rank |> sprintf "%i")
-                                selectSearch.options [
-                                    for skillRank in skill.Ranks ->
-                                        {
-                                            value = skillRank.Level |> sprintf "%i"
-                                            name = skillRank.Level |> sprintf "%i"
-                                            disabled = false
-                                        }
-                                ]
-                                selectSearch.onChange (fun id -> (updateSkill (Some(skill, (int) id))))
-                            ]
-                        ]
-                    ]
-                | None -> ()
-                Html.button [
-                    prop.type' "button"
-                    prop.disabled skillAndRank.IsNone
-                    prop.onClick (fun _me -> addSkillAndClear skillAndRank)
-                    prop.children [ Html.text "Add Skill" ]
                 ]
             ]
         ]

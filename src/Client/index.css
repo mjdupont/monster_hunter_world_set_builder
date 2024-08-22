@@ -12,11 +12,16 @@ body {
 button {
   background: gray;
   border-radius: 6px;
+  padding: 2px
 }
 
 input[type="number"] {
   border: 5px
 }
+
+/* .select-search__input {
+  height: 28px;
+} */
 
 /* button {
   border: 2px solid black;

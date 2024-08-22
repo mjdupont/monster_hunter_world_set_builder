@@ -23,7 +23,7 @@ module SelectedSkill =
             prop.children [
                 Html.text (sprintf "%s" props.Skill.Name)
                 Html.div [
-                  prop.className "flex flex-row gap-2"
+                  prop.className "flex flex-row gap-.5"
                   prop.children [
                     Html.input [
                         //prop.id (printfn "chosen-skill-%s" props.Skill.Name)
@@ -32,14 +32,15 @@ module SelectedSkill =
                         prop.className "shrink 0"
                         prop.max (props.Skill.Ranks |> Array.map (fun sr -> sr.Level) |> Array.max)
                         prop.onChange props.SetLevel
+
                         prop.value props.Rank
                         prop.style [ style.color "black"; style.flexShrink 0; style.width 32 ]
                               ]
                     Html.button [
                         prop.type' "button"
-                        prop.className "shrink-0"
+                        prop.className "shrink-0 px-2 font-bold bg-transparent"
                         prop.onClick (fun _me -> props.RemoveSkillCallBack props.Skill)
-                        prop.children [ Html.text "Remove Skill" ]
+                        prop.children [ Html.text "X" ]
                     ]
                   ]
                 ]

@@ -56,18 +56,24 @@ module SetSearcher =
                     Skills = unselectedSkills
                     AddSkill = addSkill
                 |}
-                Html.button [
-                    prop.onClick (fun _me -> props.SubmitSkills skillList)
-                    prop.children [ Html.text "Find Set" ]
-                    prop.style [ style.margin.auto ]
-                ]
-                if props.Skills |> (not << Seq.isEmpty) then
+                Html.div [
+                  prop.className "flex flex-row justify-evenly"
+                  prop.children [
+                    Html.button [
+                        prop.onClick (fun _me -> props.SubmitSkills skillList)
+                        prop.children [ Html.text "Find Set" ]
+                        prop.style [ style.margin.auto ]
+                    ]
+
                     Html.button [
                         prop.type' "button"
                         prop.disabled (props.Skills |> Seq.isEmpty)
                         prop.onClick (fun _me -> clearSkills ())
-                        prop.children [ Html.text "Clear all Skills" ]
+                        prop.children [ Html.text "Clear All" ]
                         prop.style [ style.margin.auto ]
                     ]
+                  ]
+                ]
+                
             ]
         ]
