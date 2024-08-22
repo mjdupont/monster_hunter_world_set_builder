@@ -25,15 +25,17 @@ type Model = {
 type Msg =
     | LoadData of DeferredMessage<MHWDataType, string>
     | CheckIfFullyLoaded
-    | LoadChosenSetFromWebStorage
-    | LoadSkillListFromWebStorage
-    | LoadUserDataFromWebStorage
+
     | FindMatchingSet of (Skill * int) list
+    | FoundSet of ChosenSet
+    | SetSearchStatus of SearchStatus
+
     | UpdateChosenSet of ChosenSet
     | UpdateSkillList of SkillList
-    | SetSearchStatus of SearchStatus
     | UpdateUserData of UserData
+    | NoOp
 
+let ignoreMsg () = NoOp
 
 let mhwApi = Api.makeProxy<IMHWApi> ()
 
@@ -129,6 +131,7 @@ let loadNewGameData model mhwDataType =
 
 let update msg (model: Model) =
     match msg with
+    | NoOp -> model, Cmd.none
     | LoadData(DeferredMessage.InProgress) -> model, Cmd.none
 
     | LoadData(DeferredMessage.Success dataType) ->
@@ -142,102 +145,89 @@ let update msg (model: Model) =
     | CheckIfFullyLoaded ->
         match model.GameData with
         | PartialDeferred.InProgress loadingMHWData when loadingMHWData.isFullyLoaded ->
-            {
-                model with
-                    GameData = loadingMHWData.asFullyLoaded
-            },
-            Cmd.batch [
-                Cmd.ofMsg LoadChosenSetFromWebStorage
-                Cmd.ofMsg LoadSkillListFromWebStorage
-                Cmd.ofMsg LoadUserDataFromWebStorage
-            ]
+            let gameData = loadingMHWData.asFullyLoaded 
+            let newModel = 
+              {
+                  model with
+                      GameData = loadingMHWData.asFullyLoaded
+              }
+            let cmd = 
+              match gameData with 
+                | PartialDeferred.Success gameData ->
+                  Cmd.batch [
+                      Cmd.OfAsync.perform 
+                        (fun () -> ChosenSet.readFromWebStorage gameData.Decorations gameData.Weapons gameData.Armor gameData.Charms) 
+                        () 
+                        (fun chosenSet -> UpdateChosenSet (chosenSet |> Option.defaultValue {ChosenSet.Default with Weapon = customWeapon} ))
+                      Cmd.OfAsync.perform 
+                        (fun () -> SkillList.readFromWebStorage gameData.Skills) 
+                        () 
+                        (fun skillList -> UpdateSkillList (skillList |> Option.defaultValue (SkillList [])))
+                      Cmd.OfAsync.perform 
+                        (fun () -> UserData.readFromWebStorage gameData.Armor gameData.Charms gameData.Decorations) 
+                        () 
+                        (fun maybeUserData -> 
+                          match maybeUserData with 
+                          | Some userData -> UpdateUserData userData 
+                          | None -> UpdateUserData (UserData.allItems gameData.Skills gameData.Armor gameData.Charms gameData.Decorations)
+                        )
+                  ]
+
+                | _ -> Cmd.none
+            newModel, cmd
+        
         | _ -> model, Cmd.none
 
-    | LoadChosenSetFromWebStorage ->
-        let loadedChosenSet =
-            match model.GameData with
-            | PartialDeferred.Success gameData ->
-                let loadedChosenset =
-                    ChosenSet.readFromWebStorage gameData.Decorations gameData.Weapons gameData.Armor gameData.Charms
-
-                loadedChosenset
-            | _ -> model.ChosenSet
-
-        match loadedChosenSet.Weapon with
-        | None ->
-            {
-                model with
-                    ChosenSet = {
-                        loadedChosenSet with
-                            Weapon = customWeapon
-                    }
-            },
-            Cmd.none
-        | Some w ->
-            {
-                model with
-                    ChosenSet = loadedChosenSet
-            },
-            Cmd.none
-
-    | LoadSkillListFromWebStorage ->
-        let loadedSkillList =
-            match model.GameData with
-            | PartialDeferred.Success gameData -> SkillList.readFromWebStorage gameData.Skills
-            | _ -> SkillList []
-
-        {
-            model with
-                SkillList = loadedSkillList
-        },
-        Cmd.none
-
-    | LoadUserDataFromWebStorage ->
-        let loadedUserData =
-            match model.GameData with
-            | PartialDeferred.Success gameData ->
-                UserData.readFromWebStorage gameData.Armor gameData.Charms gameData.Decorations
-                |> Option.defaultValue (
-                    UserData.allItems gameData.Skills gameData.Armor gameData.Charms gameData.Decorations
-                )
-            | _ -> UserData.Default
-
-        { model with UserData = loadedUserData }, Cmd.none
-
-    | UpdateChosenSet set ->
-        do ChosenSet.storeToWebStorage set
-        { model with ChosenSet = set }, Cmd.none
+    | UpdateChosenSet set -> 
+        { model with ChosenSet = set }, Cmd.OfAsync.perform ChosenSet.storeToWebStorage set ignoreMsg
 
     | UpdateSkillList list ->
-        do SkillList.storeToWebStorage list
-
         {
             model with
                 SkillList = list |> (fun (SkillList sl) -> SkillList(sl |> List.sort))
         },
-        Cmd.none
+        Cmd.OfAsync.perform SkillList.storeToWebStorage list ignoreMsg
+
+    | UpdateUserData userData ->
+        { model with UserData = userData }, Cmd.OfAsync.perform UserData.storeToWebStorage userData ignoreMsg
+
+
 
     | FindMatchingSet requestedSkills ->
+        let findSetAsync (gameData:MHWData) = 
+            async {
+                let armor = (model.UserData.Armor |> List.filter snd |> List.map fst |> armorByType)
+
+                let charms =
+                    (model.UserData.Charms
+                    |> List.map (fun (c, maxR) -> c, c.Ranks |> Array.filter (fun cr -> cr.Level = maxR) |> Array.head))
+
+                let decorations = model.UserData.Decorations
+
+                let maybeSet = 
+                  match assignArmor3 1 gameData.Skills model.ChosenSet armor charms decorations requestedSkills with
+                  | [] -> None
+                  | set :: rest -> Some (set, rest)
+
+                printfn "%A" maybeSet
+                return maybeSet
+                  
+            }
+        let onSuccess maybeSet = 
+          match maybeSet with
+          | Some (set, _rest) -> FoundSet set
+          | None -> SetSearchStatus Failed
+        
+        let onFail _e = 
+          SetSearchStatus Failed
+        
         match model.GameData, model.ChosenSet.Weapon with
-        | PartialDeferred.Success gameData, Some weapon ->
-            let armor = (model.UserData.Armor |> List.filter snd |> List.map fst |> armorByType)
-
-            let charms =
-                (model.UserData.Charms
-                 |> List.map (fun (c, maxR) -> c, c.Ranks |> Array.filter (fun cr -> cr.Level = maxR) |> Array.head))
-
-            let decorations = model.UserData.Decorations
-            printfn "Armor %A\t" armor
-            printfn "Charms %A\t" charms
-            printfn "Decorations %A\t" decorations
-
-            match assignArmor3 1 gameData.Skills model.ChosenSet armor charms decorations requestedSkills with
-            | [] -> model, Cmd.ofMsg (SetSearchStatus Failed)
-            | set :: rest ->
-                { model with ChosenSet = set },
-                Cmd.batch [ Cmd.ofMsg (UpdateChosenSet set); Cmd.ofMsg (SetSearchStatus Found) ]
-
-        | _ -> model, Cmd.none
+            | PartialDeferred.Success gameData, _ ->
+                model, Cmd.OfAsync.either findSetAsync gameData onSuccess onFail
+            | _ -> model, Cmd.ofMsg (SetSearchStatus Failed)
+          
+     | FoundSet set ->
+        model, Cmd.batch [ Cmd.ofMsg (UpdateChosenSet set); Cmd.ofMsg (SetSearchStatus Found) ] 
 
     | SetSearchStatus status ->
         match status with
@@ -245,9 +235,6 @@ let update msg (model: Model) =
         | Failed
         | _ -> { model with SearchStatus = status }, Cmd.none
 
-    | UpdateUserData userData ->
-        do UserData.storeToWebStorage userData
-        { model with UserData = userData }, Cmd.none
 
 let view (model: Model) dispatch =
 
@@ -311,23 +298,12 @@ let view (model: Model) dispatch =
 
         Html.section [
             prop.className "h-screen w-screen"
-            prop.style [
-                style.backgroundSize "cover"
-                //style.backgroundImageUrl "https://unsplash.it/1200/900?random"
-                style.backgroundColor "black"
-                style.backgroundPosition "no-repeat center center fixed"
-            ]
             prop.children [
                 UserEquipmentSelector.Component {|
                     UserData = model.UserData
                     GameData = gameData
                     UpdateUserData = (UpdateUserData >> dispatch)
                 |}
-                Html.a [
-                    prop.href "https://safe-stack.github.io/"
-                    prop.className "absolute block ml-12 h-12 w-12 bg-teal-300 hover:cursor-pointer hover:bg-teal-400"
-                    prop.children [ Html.img [ prop.src "/favicon.png"; prop.alt "Logo" ] ]
-                ]
                 Html.div [
                     prop.className "content flex flex-row h-full w-full gap-8"
                     prop.children [

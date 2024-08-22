@@ -149,7 +149,7 @@ type ChosenSet with
         (armor: Armor seq)
         (charms: Charm seq)
         (storedString: string)
-        : ChosenSet =
+        : ChosenSet option =
         let storedForm: Result<StoredChosenSet, string> =
             storedString |> Thoth.Json.Decode.Auto.fromString
 
@@ -230,20 +230,24 @@ type ChosenSet with
         |> (function
         | Ok s -> Some s
         | Error _ -> None)
-        |> Option.defaultValue ChosenSet.Default
 
-    static member storeToWebStorage(chosenSet: ChosenSet) : unit =
+    static member storeToWebStorage(chosenSet: ChosenSet) : Async<unit> =
+      async {
         let serialized = chosenSet |> ChosenSet.serialize
         Browser.WebStorage.sessionStorage.setItem ("chosenSet", serialized)
+      }
 
     static member readFromWebStorage
         (decorations: Decoration seq)
         (weapons: Weapon seq)
         (armor: Armor seq)
         (charms: Charm seq)
-        : ChosenSet =
-        Browser.WebStorage.sessionStorage.getItem ("chosenSet")
-        |> ChosenSet.deserialize decorations weapons armor charms
+        : Async<ChosenSet option> =
+          async {
+            return 
+              Browser.WebStorage.sessionStorage.getItem ("chosenSet")
+              |> ChosenSet.deserialize decorations weapons armor charms
+          }
 
 
 type SkillList = SkillList of (Skill * int) list
@@ -280,13 +284,17 @@ type SkillList with
         | Error _ -> None
 
     static member storeToWebStorage(SkillList skillList) =
+      async { 
         let serialized = SkillList.serialize (SkillList skillList)
         Browser.WebStorage.sessionStorage.setItem ("skillList", serialized)
+      }
 
     static member readFromWebStorage(skills: Skill list) =
-        Browser.WebStorage.sessionStorage.getItem ("skillList")
-        |> SkillList.deserialize skills
-        |> Option.defaultValue (SkillList [])
+      async {
+        return 
+          Browser.WebStorage.sessionStorage.getItem ("skillList")
+          |> SkillList.deserialize skills
+      }
 
 
 type SearchStatus =
@@ -373,7 +381,6 @@ type UserData with
         (storedUserDataString: string)
         : UserData option =
         let storedUserData = Thoth.Json.Decode.Auto.fromString storedUserDataString
-        printfn $"{charms}"
 
         match storedUserData with
         | Error _ -> None
@@ -415,16 +422,20 @@ type UserData with
             | _ -> None
 
 
-    static member storeToWebStorage userData =
+    static member storeToWebStorage userData = 
+      async {
         let serialized = UserData.serialize (userData)
         Browser.WebStorage.sessionStorage.setItem ("userData", serialized)
+      }
 
     static member readFromWebStorage (armor: Armor list) (charms: Charm list) (decorations: Decoration list) =
+      async { 
         let result =
             Browser.WebStorage.sessionStorage.getItem ("userData")
             |> UserData.deserialize (armor, charms, decorations)
 
-        result
+        return result
+      }
 
 type MHWDataType =
     | Armor of Armor list

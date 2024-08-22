@@ -234,7 +234,6 @@ let tryAssignDecorations skills remainingSkillNeed decorations chosenSet =
             |> List.sortByDescending fst
 
         let decorations = allocateDecorations chosenSet decorationsToAllocate
-        printfn "%A" decorations
         return! decorations
     }
 

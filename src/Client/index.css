@@ -3,9 +3,19 @@
 @tailwind components;
 @tailwind utilities;
 
+body {
+  background-color: rgb(15 23 42);
+  background-attachment: fixed;
+  background-position: center center;
+}
+
 button {
   background: gray;
   border-radius: 6px;
+}
+
+input[type="number"] {
+  border: 5px
 }
 
 /* button {
