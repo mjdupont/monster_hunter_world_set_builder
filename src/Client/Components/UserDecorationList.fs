@@ -36,7 +36,7 @@ module UserDecorationList =
             prop.children (
                 [
                     Html.input [
-                        prop.className "text-black w-full"
+                        prop.className "text-black w-full sticky top-0"
                         prop.type' "text"
                         prop.onTextChange setSearchWord
                         prop.value searchWord

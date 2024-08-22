@@ -32,10 +32,13 @@ module SetSearcher =
         let removeSkill (skill: Skill) =
             props.UpdateSkillList(SkillList(skillList |> List.filter (fun (sk, r) -> not (sk.Name = skill.Name))))
 
+        let setSkillLevel (skill : Skill) newLevel = 
+            props.UpdateSkillList(SkillList(skillList |> List.map (fun (sk, l) -> if (sk.Name = skill.Name) then (sk, newLevel) else (sk, l))))
+
         let clearSkills () = props.UpdateSkillList(SkillList [])
 
         Html.div [
-            prop.className "SetSearcher flex flex-col gap-1"
+            prop.className "SetSearcher flex flex-col gap-1 p-1"
             prop.children [
                 Html.div [
                     prop.className "selected-skills-list flex-item flex flex-col gap-1"
@@ -45,6 +48,7 @@ module SetSearcher =
                                 Skill = skill
                                 Rank = rank
                                 RemoveSkillCallBack = removeSkill
+                                SetLevel = (setSkillLevel skill)
                             |}
                     ]
                 ]

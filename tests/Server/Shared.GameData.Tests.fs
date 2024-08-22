@@ -1,4 +1,4 @@
-module APIDataTypes.Tests
+module APIData.Tests
 
 open Shared
 open SetSearchLogic
@@ -279,4 +279,94 @@ let gameDataTypes =
                 results
                 expectedResults
                 "Skills should correctly identify the slot size of their singleton decoration if it exists"
+
+        let dataForHardDecorations = 
+            let requestedSkills =
+                [
+                      "Attack Boost", 4
+                      "Defense Boost", 7          // 2 Contribution
+                      "Weakness Exploit", 3
+                      "Constitution", 3
+                      "Clutch Claw Boost", 1
+                      "Geologist", 3              // 1 Contribution
+
+                ]
+
+            let skillNames, levels = requestedSkills |> List.unzip
+            let requestedSkillNames = skillNames |> stringMatch skills (fun skill -> skill.Name)
+            let requestedSkills = List.zip requestedSkillNames levels
+
+            let decorations = allDecorations skills decorations
+
+            let slots = 
+              [ 
+                (Slot 4, 3)
+                (Slot 3, 2)
+                (Slot 2, 2)
+                (Slot 1, 4)
+              ]
+            (requestedSkills, decorations, slots)
+
+
+        testCase "Can calculate hard decoration skill contribution"
+        <| fun _ ->
+
+            let results = hardSkillContribution <||| dataForHardDecorations
+
+            Expect.equal
+                results
+                3
+                "Failed to calculate excess reach achieved with hard decorations"
+
+        testCase "Reduces count when fewer hard decorations"
+        <| fun _ ->
+
+            let requestedSkills, decorations, slots = dataForHardDecorations
+
+            let decorations = 
+              decorations 
+              |> List.map (fun (hardDeco, count) -> 
+                match 
+                  hardDeco.Skills 
+                  |> Array.tryExactlyOne 
+                  |> Option.filter (fun sr -> sr.SkillName = "Defense Boost" && sr.Level = 3)
+                with
+                | Some _ -> (hardDeco, 1)
+                | _ -> (hardDeco, count)
+              )
+
+            let results = hardSkillContribution requestedSkills decorations slots
+
+            Expect.equal
+                results
+                2
+                "Did not reduce skill contribution when only a single hard defense decoration existed"
+
+        testCase "Reduces count when fewer size 4 slots"
+        <| fun _ ->
+
+            let requestedSkills, decorations, slots = dataForHardDecorations
+
+            let slots = slots |> List.map (fun ((Slot s), count) -> if s = 4 then (Slot 4), 1 else (Slot s), count)
+
+            let results = hardSkillContribution requestedSkills decorations slots
+
+            Expect.equal
+                results
+                1
+                "Did not reduce skill contribution when only one slots was available"
+
+        testCase "Reduces count with less skillNeed"
+        <| fun _ ->
+
+            let requestedSkills, decorations, slots = dataForHardDecorations
+
+            let requestedSkills = requestedSkills |> List.map (fun (skill, req) -> if skill.Name = "Defense Boost" then (skill, 4) else skill,req)
+
+            let results = hardSkillContribution requestedSkills decorations slots
+
+            Expect.equal
+                results
+                2
+                "Did not reduce skill contribution when requesting a lower level of skills than hard decos could provide"
     ]

@@ -47,7 +47,7 @@ let calculateReachOfChosenSet skills decorations chosenSet charms armorByType re
                 skills
                 decorations
                 remainingSkillNeed
-                (optimalDecorationReach skills decorations remainingSkillNeed)
+                (simplisticReachHeuristic)
         )
         |> Option.defaultValue 0
 
@@ -70,18 +70,21 @@ let calculateReachOfChosenSet skills decorations chosenSet charms armorByType re
         |> List.filter (fun (slot, deco) -> deco |> Option.isNone)
         |> List.map fst
         |> asCounts
-        |> (optimalDecorationReach skills decorations remainingSkillNeed)
+        |> (simplisticReachHeuristic)
 
     let weaponDecorationReach =
         chosenSet.Weapon
         |> Option.map (snd >> DecorationSlots.asSlots >> (List.map fst) >> asCounts)
         |> Option.defaultValue []
-        |> (optimalDecorationReach skills decorations remainingSkillNeed)
+        |> (simplisticReachHeuristic)
+
+    let hardDecorationReach = hardSkillContribution remainingSkillNeed decorations [(Slot 4, 9)]
 
     bestUnassignedReach
     + charmReach
     + assignedArmorUnassignedDecorationsReach
     + weaponDecorationReach
+    + hardDecorationReach
 
 let getUnassignedSlots accumulatedSet =
     let _assignedArmorSlots, unassignedArmorSlots =
@@ -104,8 +107,6 @@ let getUnassignedSlots accumulatedSet =
 
 let inline itemWithEmptySlots (item: 'a when 'a: (member Slots: Slot array)) =
     item, (item.Slots |> DecorationSlots.FromSlots)
-
-
 
 let removeUnboundDecorations (fixedSet: ChosenSet) (accumulatedSet: ChosenSet) = {
     accumulatedSet with
@@ -136,23 +137,6 @@ let tryRemoveLastAssignment fixedSet accumulatedSet =
         |> List.rev
         |> List.tryHead
         |> Option.map (fun piece -> (accumulatedSet |> ChosenSet.setArmor piece None))
-
-
-let simplisticReachHeuristic (slots: (Slot * int) seq) =
-    [
-        for Slot s, count in slots ->
-            let decoSlotWeight =
-                match s with
-                | 4 -> 2
-                | 3 -> 1
-                | 2 -> 1
-                | 1 -> 1
-                | _ -> 0
-
-            count * decoSlotWeight
-    ]
-    |> List.sum
-
 
 module DecorationAllocation =
 
@@ -323,9 +307,6 @@ let rec assignArmor3'
     (accumulatedSet: ChosenSet)
     : ((ChosenSet * Map<ArmorType, Armor List> * (Charm * CharmRank) list) option) =
     let remainingSkillNeed = remainingSkillNeed skills accumulatedSet requestedSkills
-
-    let optimalDecorationReach' =
-        memoize optimalDecorationReach skills decorations remainingSkillNeed
 
     let armorByType =
         armorByType

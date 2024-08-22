@@ -7,7 +7,7 @@
   </PropertyGroup>
   <ItemGroup>
     <None Include="paket.references" />
-    <Compile Include="GameDataTypes.Tests.fs" />
+    <Compile Include="Shared.GameData.Tests.fs" />
     <Compile Include="DecorationAssignment.Tests.fs" />
     <Compile Include="SetSearchLogic.Tests.fs" />
     <Compile Include="Server.Tests.fs" />

@@ -412,8 +412,6 @@ type UserData with
 
             match foundArmor, foundCharms, foundDecorations with
             | a, Some c, Some d ->
-                printfn "%A" c
-
                 Some {
                     Armor = a
                     Charms = c
