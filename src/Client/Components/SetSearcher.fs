@@ -32,8 +32,13 @@ module SetSearcher =
         let removeSkill (skill: Skill) =
             props.UpdateSkillList(SkillList(skillList |> List.filter (fun (sk, r) -> not (sk.Name = skill.Name))))
 
-        let setSkillLevel (skill : Skill) newLevel = 
-            props.UpdateSkillList(SkillList(skillList |> List.map (fun (sk, l) -> if (sk.Name = skill.Name) then (sk, newLevel) else (sk, l))))
+        let setSkillLevel (skill: Skill) newLevel =
+            props.UpdateSkillList(
+                SkillList(
+                    skillList
+                    |> List.map (fun (sk, l) -> if (sk.Name = skill.Name) then (sk, newLevel) else (sk, l))
+                )
+            )
 
         let clearSkills () = props.UpdateSkillList(SkillList [])
 
@@ -57,23 +62,23 @@ module SetSearcher =
                     AddSkill = addSkill
                 |}
                 Html.div [
-                  prop.className "flex flex-row justify-evenly"
-                  prop.children [
-                    Html.button [
-                        prop.onClick (fun _me -> props.SubmitSkills skillList)
-                        prop.children [ Html.text "Find Set" ]
-                        prop.style [ style.margin.auto ]
-                    ]
+                    prop.className "flex flex-row justify-evenly"
+                    prop.children [
+                        Html.button [
+                            prop.onClick (fun _me -> props.SubmitSkills skillList)
+                            prop.children [ Html.text "Find Set" ]
+                            prop.style [ style.margin.auto ]
+                        ]
 
-                    Html.button [
-                        prop.type' "button"
-                        prop.disabled (props.Skills |> Seq.isEmpty)
-                        prop.onClick (fun _me -> clearSkills ())
-                        prop.children [ Html.text "Clear All" ]
-                        prop.style [ style.margin.auto ]
+                        Html.button [
+                            prop.type' "button"
+                            prop.disabled (props.Skills |> Seq.isEmpty)
+                            prop.onClick (fun _me -> clearSkills ())
+                            prop.children [ Html.text "Clear All" ]
+                            prop.style [ style.margin.auto ]
+                        ]
                     ]
-                  ]
                 ]
-                
+
             ]
         ]

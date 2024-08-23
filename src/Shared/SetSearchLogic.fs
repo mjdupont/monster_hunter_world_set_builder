@@ -42,13 +42,7 @@ let calculateReachOfChosenSet skills decorations chosenSet charms armorByType re
         armorByType
         |> Map.find armorType
         |> List.tryHead
-        |> Option.map (
-            armorSkillContribution
-                skills
-                decorations
-                remainingSkillNeed
-                (simplisticReachHeuristic)
-        )
+        |> Option.map (armorSkillContribution skills decorations remainingSkillNeed (simplisticReachHeuristic))
         |> Option.defaultValue 0
 
     let unassignedPieces = ChosenSet.getUnassignedPieces chosenSet
@@ -78,7 +72,8 @@ let calculateReachOfChosenSet skills decorations chosenSet charms armorByType re
         |> Option.defaultValue []
         |> (simplisticReachHeuristic)
 
-    let hardDecorationReach = hardSkillContribution remainingSkillNeed decorations [(Slot 4, 9)]
+    let hardDecorationReach =
+        hardSkillContribution remainingSkillNeed decorations [ (Slot 4, 9) ]
 
     bestUnassignedReach
     + charmReach
@@ -205,96 +200,136 @@ module DecorationAllocation =
 
 open DecorationAllocation
 
-let tryAssignDecorations skills remainingSkillNeed decorations chosenSet =
-    printfn "Trying to assign decorations..."
+module Assignment = 
 
-    option {
-        let unassignedSlots = chosenSet |> getUnassignedSlots |> List.map fst |> asCounts
-        let! decorationSolution = findDecorationsSatisfyingSkills skills remainingSkillNeed unassignedSlots decorations
+    let tryAssignDecorations skills remainingSkillNeed decorations chosenSet =
+        printfn "Trying to assign decorations..."
 
-        let decorationsToAllocate =
-            decorationSolution
-            |> List.choose (fun (s, mDeco) -> mDeco |> Option.map (fun mDec -> s, mDec))
-            |> List.sortByDescending fst
+        option {
+            let unassignedSlots = chosenSet |> getUnassignedSlots |> List.map fst |> asCounts
+            let! decorationSolution = findDecorationsSatisfyingSkills skills remainingSkillNeed unassignedSlots decorations
 
-        let decorations = allocateDecorations chosenSet decorationsToAllocate
-        return! decorations
-    }
+            let decorationsToAllocate =
+                decorationSolution
+                |> List.choose (fun (s, mDeco) -> mDeco |> Option.map (fun mDec -> s, mDec))
+                |> List.sortByDescending fst
 
-
-
-let tryAssignArmor (armorByType: Map<ArmorType, Armor List>) accumulatedSet =
-    printfn "Trying to assign armor..."
-
-    let lookupNextArmorPiece armorType = option {
-        let! pieces = armorByType |> Map.tryFind armorType
-
-        let! maybeChosenPieces =
-            match pieces with
-            | headPiece :: restPieces -> Some(headPiece, restPieces)
-            | _ -> None
-
-        return armorType, maybeChosenPieces
-    }
-
-    let maybeNextArmorPiece =
-        accumulatedSet
-        |> ChosenSet.getUnassignedPieces
-        |> List.choose lookupNextArmorPiece
-        |> List.tryHead
-
-    match maybeNextArmorPiece with
-    | Some(armorType, ((piece: Armor), rest)) ->
-        let newArmorByType = armorByType |> Map.add armorType rest
-
-        let newAccumulatedSet =
-            accumulatedSet
-            |> ChosenSet.setArmor armorType (Some(piece, piece.Slots |> DecorationSlots.FromSlots))
-
-        Some(newAccumulatedSet, newArmorByType)
-    | None -> None
-
-
-
-let tryAssignCharm charms accumulatedSet =
-    printfn "Trying to assign armor..."
-
-    match accumulatedSet.Charm, charms with
-    | None, nextCharm :: remainingCharms ->
-        let newAccumulatedSet = {
-            accumulatedSet with
-                Charm = Some nextCharm
+            let decorations = allocateDecorations chosenSet decorationsToAllocate
+            return! decorations
         }
 
-        Some(newAccumulatedSet, remainingCharms)
-    | None, [] -> None
-    | Some charm, _ -> None
+
+
+    let tryAssignArmor (armorByType: Map<ArmorType, Armor List>) accumulatedSet =
+        printfn "Trying to assign armor..."
+
+        let lookupNextArmorPiece armorType = option {
+            let! pieces = armorByType |> Map.tryFind armorType
+
+            let! maybeChosenPieces =
+                match pieces with
+                | headPiece :: restPieces -> Some(headPiece, restPieces)
+                | _ -> None
+
+            return armorType, maybeChosenPieces
+        }
+
+        let maybeNextArmorPiece =
+            accumulatedSet
+            |> ChosenSet.getUnassignedPieces
+            |> List.choose lookupNextArmorPiece
+            |> List.tryHead
+
+        match maybeNextArmorPiece with
+        | Some(armorType, ((piece: Armor), rest)) ->
+            let newArmorByType = armorByType |> Map.add armorType rest
+
+            let newAccumulatedSet =
+                accumulatedSet
+                |> ChosenSet.setArmor armorType (Some(piece, piece.Slots |> DecorationSlots.FromSlots))
+
+            Some(newAccumulatedSet, newArmorByType)
+        | None -> None
+
+
+
+    let tryAssignCharm charms accumulatedSet =
+        printfn "Trying to assign charm..."
+
+        match accumulatedSet.Charm, charms with
+        | None, nextCharm :: remainingCharms ->
+            let newAccumulatedSet = {
+                accumulatedSet with
+                    Charm = Some nextCharm
+            }
+
+            Some(newAccumulatedSet, remainingCharms)
+        | None, [] -> None
+        | Some charm, _ -> None
 
 
 
 
-let tryAssignNext skills remainingSkillNeed accumulatedSet armorByType charms decorations =
+    let tryAssignNext skills remainingSkillNeed accumulatedSet armorByType charms decorations =
 
-    let tryAssignArmor =
-        tryAssignArmor armorByType >> Option.map (fun (s, a) -> (s, a, charms))
+        let tryAssignArmor =
+            tryAssignArmor armorByType >> Option.map (fun (s, a) -> (s, a, charms))
 
-    let tryAssignCharm =
-        tryAssignCharm charms >> Option.map (fun (s, c) -> (s, armorByType, c))
+        let tryAssignCharm =
+            tryAssignCharm charms >> Option.map (fun (s, c) -> (s, armorByType, c))
 
-    let tryAssignDecorations =
-        tryAssignDecorations skills remainingSkillNeed decorations
-        >> Option.map (fun s -> s, armorByType, charms)
+        let tryAssignDecorations =
+            tryAssignDecorations skills remainingSkillNeed decorations
+            >> Option.map (fun s -> s, armorByType, charms)
 
 
-    accumulatedSet
-    |> (tryAssignArmor
-        |> Option.withFallback tryAssignCharm
-        |> Option.withFallback tryAssignDecorations)
+        accumulatedSet
+        |> (tryAssignCharm
+            |> Option.withFallback tryAssignArmor
+            |> Option.withFallback tryAssignDecorations)
+///
+/// Tries to first assign armor pieces to the set that have the armor-unique skill; 
+/// Returns a list of valid sets satisfying armor-unique skills
+/// 
+let tryAssignArmorUniqueSkills skills armorByType armorSets decorations chosenSet requestedSkills : ChosenSet list =
+  let partitionedSkills = partitionSkills armorSets decorations (requestedSkills |> List.map fst)
+  let armorUniqueSkills = partitionedSkills.ArmorUniqueSkills
+ 
+  let containsUniqueSkill uniqueSkill armor = 
+    armor 
+    |> containedSkills skills 
+    |> List.filter (fun (s, _) -> s = uniqueSkill)
+    |> (not << List.isEmpty)
 
+
+  // For each unique skill, get all the pieces that contain that skill.
+  // Copy the chosenSet for each of those pieces that can be added to the chosenSet, and add that piece. 
+  // Repeat for the next skill, for all previously found chosenSets.
+  let addPieceWithUniqueSkill (chosenSets: ChosenSet list) (uniqueSkill:Skill) =
+      [ for cSet in chosenSets do
+        match (ChosenSet.getUnassignedPieces cSet) with
+        | [] -> ()  //ChosenSet has no room for more pieces
+        | unassignedPieces -> 
+          for unassignedPiece in unassignedPieces do
+            let piecesWithUniqueSkill = 
+              Map.tryFind unassignedPiece armorByType 
+              |> Option.defaultValue [] 
+              |> List.filter (containsUniqueSkill uniqueSkill)
+            for pieceWithUniqueSkill in piecesWithUniqueSkill do
+            yield cSet |> ChosenSet.setArmor unassignedPiece (Some (pieceWithUniqueSkill, pieceWithUniqueSkill.Slots |> DecorationSlots.FromSlots))
+      ]
+  
+  armorUniqueSkills |> List.fold addPieceWithUniqueSkill [ chosenSet ]
+
+
+
+open Assignment
 
 let isCompleteSet skills requestedSkills accumulatedSet =
     let remainingSkillNeed = remainingSkillNeed skills accumulatedSet requestedSkills
     remainingSkillNeed |> List.isEmpty
+
+
 
 let rec assignArmor3'
     skills
@@ -341,7 +376,6 @@ let rec assignArmor3'
     | Some(updatedSet, remainingArmor, remainingCharms) ->
         assignArmor3' skills fixedSet decorations requestedSkills remainingCharms remainingArmor updatedSet
 
-
 let assignArmor3
     n_to_find
     skills
@@ -350,17 +384,22 @@ let assignArmor3
     (charms: (Charm * CharmRank) list)
     (decorations: (Decoration * int) list)
     (requestedSkills: (Skill * int) list)
+    (armorSets: ArmorSet list)
     =
 
     // Preprocess armorByType, charms
     // Identify Set Skills, choose combinations of pieces from those sets, fix these pieces
     // Iterate on armor assignments for each of these subsets
 
+    let setsWithUniqueSkills = tryAssignArmorUniqueSkills skills armorByType armorSets (decorations |> List.map fst) chosenSet requestedSkills
+    
     let rec assignArmor3outer accumulatedSets fixedSet workingSet' armor' charms' =
         printfn "Accumulated sets: %i" (List.length accumulatedSets)
 
         match assignArmor3' skills chosenSet decorations requestedSkills charms' armor' workingSet' with
-        | Some(finishedSet, remainingArmor, remainingCharms) when (finishedSet :: accumulatedSets) |> List.length >= n_to_find ->
+        | Some(finishedSet, remainingArmor, remainingCharms) when
+            (finishedSet :: accumulatedSets) |> List.length >= n_to_find
+            ->
             printfn $"Found {n_to_find} sets!"
             finishedSet :: accumulatedSets
 
@@ -378,5 +417,8 @@ let assignArmor3
                 assignArmor3outer newAccumulatedSets fixedSet newWorkingSet remainingArmor remainingCharms
             | None -> newAccumulatedSets
         | None -> accumulatedSets
-
-    assignArmor3outer [] chosenSet chosenSet armorByType charms
+    
+    [ for set in setsWithUniqueSkills ->
+      assignArmor3outer [] set set armorByType charms
+    ] |> List.concat
+  

@@ -1,8 +1,9 @@
 /// This module contains the methods dealing with the particular datatypes in GameDataTypes
 module GameData
-  module APIData =
+
+module APIData =
     open APIDataTypes
-      
+
     ///
     /// Compares a SkillRank to a Skill to determine if the SkillRank is of the skill.
     /// Used due to SkillRank having Id and Skill, which are different, and confusing, and prone to bugs.
@@ -37,7 +38,7 @@ module GameData
             |> Option.map (fun sk -> sk, decoSr.Level))
         |> List.ofArray
 
-          
+
     ///
     /// Check if a given decoration provides a given skill.
     ///
@@ -82,14 +83,14 @@ module GameData
         singletonDecoration decorations skill |> Option.map (fun deco -> Slot deco.Slot)
 
     let maxSkillLevelOfDecoration skills decoration =
-      decoration
-      |> containedSkills skills
-      |> List.map (fun (skill, level) ->
-          skillCaps skills
-          |> Map.tryFind skill
-          |> Option.defaultValue 0
-          |> (fun x -> int (ceil (float x) / (float level))))
-      |> List.min
+        decoration
+        |> containedSkills skills
+        |> List.map (fun (skill, level) ->
+            skillCaps skills
+            |> Map.tryFind skill
+            |> Option.defaultValue 0
+            |> (fun x -> int (ceil (float x) / (float level))))
+        |> List.min
 
     let allDecorations skills (decorations: Decoration list) =
         decorations
@@ -112,82 +113,90 @@ module GameData
 
     ///
     /// Categorizes a skill as either an armor set skill, an armor-unique skill, or a decoration skill
-    /// 
-    let categorizeSkill armorSets (decorations:Decoration list) (skill:Skill) =
-      let armorSetBonusSkillIds = 
-        armorSets 
-        |> List.choose (fun (aSet:ArmorSet) -> aSet.Bonus ) 
-        |> List.map (fun asb -> asb.Ranks |> List.ofArray) |> List.concat
-        |> List.map (fun asbr -> asbr.Skill.Skill)
-        |> List.distinct
-      let decorationSkillBonusIds =
-        decorations 
-        |> List.map (fun deco -> deco.Skills |> List.ofArray) |> List.concat
-        |> List.map (fun sr -> sr.Skill)
-        |> List.distinct
-      
-      let isArmorSetSkill = armorSetBonusSkillIds |> List.exists (fun asbsi -> asbsi = skill.Id)
-      let isDecorationSkill = decorationSkillBonusIds |> List.exists (fun dsbi -> dsbi = skill.Id)
+    ///
+    let categorizeSkill armorSets (decorations: Decoration list) (skill: Skill) =
+        let armorSetBonusSkillIds =
+            armorSets
+            |> List.choose (fun (aSet: ArmorSet) -> aSet.Bonus)
+            |> List.map (fun asb -> asb.Ranks |> List.ofArray)
+            |> List.concat
+            |> List.map (fun asbr -> asbr.Skill.Skill)
+            |> List.distinct
 
-      match isArmorSetSkill, isDecorationSkill with
-      | true, true -> ArmorSetAndDecorationSkill
-      | true, false -> ArmorSetSkill
-      | false, true -> DecorationSkill
-      | false, false -> ArmorUniqueSkill
+        let decorationSkillBonusIds =
+            decorations
+            |> List.map (fun deco -> deco.Skills |> List.ofArray)
+            |> List.concat
+            |> List.map (fun sr -> sr.Skill)
+            |> List.distinct
+
+        let isArmorSetSkill =
+            armorSetBonusSkillIds |> List.exists (fun asbsi -> asbsi = skill.Id)
+
+        let isDecorationSkill =
+            decorationSkillBonusIds |> List.exists (fun dsbi -> dsbi = skill.Id)
+
+        match isArmorSetSkill, isDecorationSkill with
+        | true, true -> ArmorSetAndDecorationSkill
+        | true, false -> ArmorSetSkill
+        | false, true -> DecorationSkill
+        | false, false -> ArmorUniqueSkill
 
     ///
     /// Splits skills into ArmorSet skills, Armor-Unique skills, Decoration skills, ArmorSet/Decoration Skills (Mind's Eye/Ballistics, Guard Up)
-    /// 
-    let partitionSkills armorSets decorations skills =
-      let mapped = skills |> List.groupBy (categorizeSkill armorSets decorations) |> Map.ofList
-      {| ArmorSetSkills = mapped |> Map.tryFind ArmorSetSkill |> Option.defaultValue []
-         DecorationSkills = mapped |> Map.tryFind DecorationSkill |> Option.defaultValue []
-         ArmorUniqueSkills = mapped |> Map.tryFind ArmorUniqueSkill |> Option.defaultValue []
-         ArmorSetAndDecorationSkills = mapped |> Map.tryFind ArmorSetAndDecorationSkill |> Option.defaultValue []
-      |}
-
-    
     ///
-    /// Calculates how much a given set of requested skills might benefit from Hard decorations. 
-    /// 
-    let hardSkillContribution 
-      (requestedSkills: (Skill * int) list) 
-      (decorations : (Decoration * int) list)
-      (slotCounts: (Slot * int) list) = 
-        let hardDecorations = 
-            decorations 
-            |> List.filter (fun (decoration:Decoration, count:int) -> 
-                decoration.Skills |> Array.exists (fun sr -> sr.Level = 3)
-                )
+    let partitionSkills armorSets decorations skills =
+        let mapped =
+            skills |> List.groupBy (categorizeSkill armorSets decorations) |> Map.ofList
 
-        let possibleHardContributions = 
-          [ for requestedSkill, level in requestedSkills do 
-            for hardDecoration, count in hardDecorations do
-              if hardDecoration.Skills 
-              |> Array.tryExactlyOne 
-              |> Option.map (fun sr -> skillRankOfSkill requestedSkill sr)
-              |> Option.defaultValue false 
-              //Note this relies on integer division truncating any fractional component
-              then yield min (level / 3) count
-          ]
+        {|
+            ArmorSetSkills = mapped |> Map.tryFind ArmorSetSkill |> Option.defaultValue []
+            DecorationSkills = mapped |> Map.tryFind DecorationSkill |> Option.defaultValue []
+            ArmorUniqueSkills = mapped |> Map.tryFind ArmorUniqueSkill |> Option.defaultValue []
+            ArmorSetAndDecorationSkills = mapped |> Map.tryFind ArmorSetAndDecorationSkill |> Option.defaultValue []
+        |}
 
-        let nSize4Slots = 
-          slotCounts 
-          |> List.filter (fun ((Slot s), count) -> s = 4) 
-          |> List.tryExactlyOne 
-          |> Option.map (snd) 
-          |> Option.defaultValue 0
 
-        (min (possibleHardContributions |> List.sum) nSize4Slots) 
+    ///
+    /// Calculates how much a given set of requested skills might benefit from Hard decorations.
+    ///
+    let hardSkillContribution
+        (requestedSkills: (Skill * int) list)
+        (decorations: (Decoration * int) list)
+        (slotCounts: (Slot * int) list)
+        =
+        let hardDecorations =
+            decorations
+            |> List.filter (fun (decoration: Decoration, count: int) ->
+                decoration.Skills |> Array.exists (fun sr -> sr.Level = 3))
 
-    let slotReachHeuristic = 
-      function
-      | Slot 4 -> 2
-      | _ -> 1
+        let possibleHardContributions = [
+            for requestedSkill, level in requestedSkills do
+                for hardDecoration, count in hardDecorations do
+                    if
+                        hardDecoration.Skills
+                        |> Array.tryExactlyOne
+                        |> Option.map (fun sr -> skillRankOfSkill requestedSkill sr)
+                        |> Option.defaultValue false
+                    //Note this relies on integer division truncating any fractional component
+                    then
+                        yield min (level / 3) count
+        ]
+
+        let nSize4Slots =
+            slotCounts
+            |> List.filter (fun ((Slot s), count) -> s = 4)
+            |> List.tryExactlyOne
+            |> Option.map (snd)
+            |> Option.defaultValue 0
+
+        (min (possibleHardContributions |> List.sum) nSize4Slots)
+
+    let slotReachHeuristic =
+        function
+        | Slot 4 -> 2
+        | _ -> 1
 
     let simplisticReachHeuristic (slots: (Slot * int) seq) =
-      [
-          for Slot s, count in slots ->
-              count * (slotReachHeuristic (Slot s))
-      ]
-      |> List.sum
+        [ for Slot s, count in slots -> count * (slotReachHeuristic (Slot s)) ]
+        |> List.sum

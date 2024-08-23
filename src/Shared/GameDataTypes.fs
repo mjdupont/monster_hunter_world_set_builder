@@ -167,15 +167,16 @@ type Skill = {
     Description: string
     Ranks: SkillRank[]
 } with
+
     override this.ToString() = this.Name
 
-    
-type SkillCategory = 
-  | ArmorSetSkill
-  | ArmorUniqueSkill
-  | DecorationSkill
-  | ArmorSetAndDecorationSkill
-  | ArmorSetAndUniqueSkill
+
+type SkillCategory =
+    | ArmorSetSkill
+    | ArmorUniqueSkill
+    | DecorationSkill
+    | ArmorSetAndDecorationSkill
+    | ArmorSetAndUniqueSkill
 
 
 [<StructuredFormatDisplay("{Name}")>]
@@ -189,6 +190,7 @@ type Weapon = {
     Slots: Slot[]
 // Rest to Follow
 } with
+
     override this.ToString() = this.Name
 
 

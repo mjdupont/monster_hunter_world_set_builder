@@ -5,6 +5,7 @@ open GameData.APIData
 
 type DecorationSlot = (Slot * Decoration option) option
 
+
 module DecorationSlot =
 
     let skillsFromDecorationSlot (decorationSlot: DecorationSlot) =
@@ -13,6 +14,8 @@ module DecorationSlot =
         |> Option.map (fun deco -> deco.Skills)
         |> Option.defaultValue [||]
 
+    let removeDecoration decorationSlot = 
+      decorationSlot |> Option.map (fun (slot, _maybeDeco) -> (slot, None))
 
 type DecorationSlotsPosition =
     | First
@@ -30,6 +33,13 @@ type DecorationSlots = {
         Second = None
         Third = None
     }
+
+    static member removeAllDecorations (decorationSlots: DecorationSlots) = 
+      { decorationSlots with 
+            First = decorationSlots.First |> DecorationSlot.removeDecoration
+            Second = decorationSlots.Second |> DecorationSlot.removeDecoration
+            Third = decorationSlots.Third |> DecorationSlot.removeDecoration      
+      }
 
     static member FromSlots(slots: Slot array) =
         let (slots: (Slot * Decoration option) option array) =

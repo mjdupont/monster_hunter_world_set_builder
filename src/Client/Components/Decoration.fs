@@ -36,12 +36,9 @@ module Decoration =
         let filterOptions (item: SelectItem) (searchQuery: string) =
             not item.disabled
             && ((item.name.ToLowerInvariant()).Contains(searchQuery.ToLowerInvariant())
-                || (
-                    (findDecorationFromId item.value) 
+                || ((findDecorationFromId item.value)
                     |> Option.map (matchesByNameOrSkills searchQuery)
-                    |> Option.defaultValue false
-                  )
-                )
+                    |> Option.defaultValue false))
 
         let imageUrlByValue (propertyValue: string) : string =
             let decoration = findDecorationFromId propertyValue
