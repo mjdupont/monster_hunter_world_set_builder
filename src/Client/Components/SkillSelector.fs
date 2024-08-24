@@ -10,7 +10,7 @@ module SkillSelector =
     let Component
         (props:
             {|
-                Skills: Skill seq
+                Skills: Skill list
                 AddSkill: (Skill * int) option -> unit
             |})
         =
@@ -21,8 +21,8 @@ module SkillSelector =
         let findSkillFromId (id: string) =
             let matchingSkill =
                 props.Skills
-                |> Seq.filter (fun skill -> skill.Id |> sprintf "%i" = id)
-                |> Seq.tryExactlyOne
+                |> List.filter (fun skill -> skill.Id |> sprintf "%i" = id)
+                |> List.tryExactlyOne
 
             let matchingSkill =
                 if matchingSkill = (skillAndRank |> Option.map fst) then
@@ -31,7 +31,7 @@ module SkillSelector =
                     matchingSkill
 
             matchingSkill
-            |> Option.map (fun ms -> ms, ms.Ranks |> Seq.map (fun r -> r.Level) |> Seq.max)
+            |> Option.map (fun ms -> ms, ms.Ranks |> List.map (fun r -> r.Level) |> List.max)
 
         let addSkillAndClear skill =
             props.AddSkill skill

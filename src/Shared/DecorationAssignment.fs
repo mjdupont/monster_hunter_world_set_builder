@@ -6,7 +6,7 @@ open FSharp.Core
 open GameData.APIData
 
 
-let inline skillContribution skills remainingSkillNeed (skillSource: 'a when 'a: (member Skills: SkillRank array)) =
+let inline skillContribution skills remainingSkillNeed (skillSource: 'a when 'a: (member Skills: SkillRank list)) =
     let cSkills = skillSource |> containedSkills skills
 
     let joined, _, _ =
@@ -19,7 +19,7 @@ let inline skillContribution skills remainingSkillNeed (skillSource: 'a when 'a:
 let inline contributes
     (skills: Skill list)
     (remainingSkillNeed: (Skill * int) list)
-    (skillSource: 'a when 'a: (member Skills: SkillRank array))
+    (skillSource: 'a when 'a: (member Skills: SkillRank list))
     =
     skillContribution skills remainingSkillNeed skillSource > 0
 

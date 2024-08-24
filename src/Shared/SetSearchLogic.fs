@@ -200,14 +200,16 @@ module DecorationAllocation =
 
 open DecorationAllocation
 
-module Assignment = 
+module Assignment =
 
     let tryAssignDecorations skills remainingSkillNeed decorations chosenSet =
         printfn "Trying to assign decorations..."
 
         option {
             let unassignedSlots = chosenSet |> getUnassignedSlots |> List.map fst |> asCounts
-            let! decorationSolution = findDecorationsSatisfyingSkills skills remainingSkillNeed unassignedSlots decorations
+
+            let! decorationSolution =
+                findDecorationsSatisfyingSkills skills remainingSkillNeed unassignedSlots decorations
 
             let decorationsToAllocate =
                 decorationSolution
@@ -287,39 +289,47 @@ module Assignment =
         |> (tryAssignCharm
             |> Option.withFallback tryAssignArmor
             |> Option.withFallback tryAssignDecorations)
+
 ///
-/// Tries to first assign armor pieces to the set that have the armor-unique skill; 
+/// Tries to first assign armor pieces to the set that have the armor-unique skill;
 /// Returns a list of valid sets satisfying armor-unique skills
-/// 
+///
 let tryAssignArmorUniqueSkills skills armorByType armorSets decorations chosenSet requestedSkills : ChosenSet list =
-  let partitionedSkills = partitionSkills armorSets decorations (requestedSkills |> List.map fst)
-  let armorUniqueSkills = partitionedSkills.ArmorUniqueSkills
- 
-  let containsUniqueSkill uniqueSkill armor = 
-    armor 
-    |> containedSkills skills 
-    |> List.filter (fun (s, _) -> s = uniqueSkill)
-    |> (not << List.isEmpty)
+    let partitionedSkills =
+        partitionSkills armorSets decorations (requestedSkills |> List.map fst)
+
+    let armorUniqueSkills = partitionedSkills.ArmorUniqueSkills
+
+    let containsUniqueSkill uniqueSkill armor =
+        armor
+        |> containedSkills skills
+        |> List.filter (fun (s, _) -> s = uniqueSkill)
+        |> (not << List.isEmpty)
 
 
-  // For each unique skill, get all the pieces that contain that skill.
-  // Copy the chosenSet for each of those pieces that can be added to the chosenSet, and add that piece. 
-  // Repeat for the next skill, for all previously found chosenSets.
-  let addPieceWithUniqueSkill (chosenSets: ChosenSet list) (uniqueSkill:Skill) =
-      [ for cSet in chosenSets do
-        match (ChosenSet.getUnassignedPieces cSet) with
-        | [] -> ()  //ChosenSet has no room for more pieces
-        | unassignedPieces -> 
-          for unassignedPiece in unassignedPieces do
-            let piecesWithUniqueSkill = 
-              Map.tryFind unassignedPiece armorByType 
-              |> Option.defaultValue [] 
-              |> List.filter (containsUniqueSkill uniqueSkill)
-            for pieceWithUniqueSkill in piecesWithUniqueSkill do
-            yield cSet |> ChosenSet.setArmor unassignedPiece (Some (pieceWithUniqueSkill, pieceWithUniqueSkill.Slots |> DecorationSlots.FromSlots))
-      ]
-  
-  armorUniqueSkills |> List.fold addPieceWithUniqueSkill [ chosenSet ]
+    // For each unique skill, get all the pieces that contain that skill.
+    // Copy the chosenSet for each of those pieces that can be added to the chosenSet, and add that piece.
+    // Repeat for the next skill, for all previously found chosenSets.
+    let addPieceWithUniqueSkill (chosenSets: ChosenSet list) (uniqueSkill: Skill) = [
+        for cSet in chosenSets do
+            match (ChosenSet.getUnassignedPieces cSet) with
+            | [] -> () //ChosenSet has no room for more pieces
+            | unassignedPieces ->
+                for unassignedPiece in unassignedPieces do
+                    let piecesWithUniqueSkill =
+                        Map.tryFind unassignedPiece armorByType
+                        |> Option.defaultValue []
+                        |> List.filter (containsUniqueSkill uniqueSkill)
+
+                    for pieceWithUniqueSkill in piecesWithUniqueSkill do
+                        yield
+                            cSet
+                            |> ChosenSet.setArmor
+                                unassignedPiece
+                                (Some(pieceWithUniqueSkill, pieceWithUniqueSkill.Slots |> DecorationSlots.FromSlots))
+    ]
+
+    armorUniqueSkills |> List.fold addPieceWithUniqueSkill [ chosenSet ]
 
 
 
@@ -391,8 +401,9 @@ let assignArmor3
     // Identify Set Skills, choose combinations of pieces from those sets, fix these pieces
     // Iterate on armor assignments for each of these subsets
 
-    let setsWithUniqueSkills = tryAssignArmorUniqueSkills skills armorByType armorSets (decorations |> List.map fst) chosenSet requestedSkills
-    
+    let setsWithUniqueSkills =
+        tryAssignArmorUniqueSkills skills armorByType armorSets (decorations |> List.map fst) chosenSet requestedSkills
+
     let rec assignArmor3outer accumulatedSets fixedSet workingSet' armor' charms' =
         printfn "Accumulated sets: %i" (List.length accumulatedSets)
 
@@ -417,8 +428,8 @@ let assignArmor3
                 assignArmor3outer newAccumulatedSets fixedSet newWorkingSet remainingArmor remainingCharms
             | None -> newAccumulatedSets
         | None -> accumulatedSets
-    
-    [ for set in setsWithUniqueSkills ->
-      assignArmor3outer [] set set armorByType charms
-    ] |> List.concat
-  
+
+    [
+        for set in setsWithUniqueSkills -> assignArmor3outer [] set set armorByType charms
+    ]
+    |> List.concat

@@ -38,7 +38,10 @@ module UserEquipmentSelector =
         let decorationsWithMax =
             decorations
             |> List.map (fun (decoration, count) ->
-                (decoration, count), decoration |> maxSkillLevelOfDecoration props.GameData.Skills)
+                (decoration, count),
+                props.GameData.Memoized.DecorationMaxCount
+                |> Map.tryFind decoration
+                |> Option.defaultValue 0)
 
         Sidebar.Component "My Gear" {|
             Content =

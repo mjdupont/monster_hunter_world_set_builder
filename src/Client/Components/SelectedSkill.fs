@@ -30,7 +30,7 @@ module SelectedSkill =
                             prop.type' "number"
                             prop.min 0
                             prop.className "shrink 0"
-                            prop.max (props.Skill.Ranks |> Array.map (fun sr -> sr.Level) |> Array.max)
+                            prop.max (props.Skill.Ranks |> List.map (fun sr -> sr.Level) |> List.max)
                             prop.onChange props.SetLevel
 
                             prop.value props.Rank

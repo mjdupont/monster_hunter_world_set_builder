@@ -12,10 +12,10 @@ module DecorationSlot =
         decorationSlot
         |> Option.bind snd
         |> Option.map (fun deco -> deco.Skills)
-        |> Option.defaultValue [||]
+        |> Option.defaultValue []
 
-    let removeDecoration decorationSlot = 
-      decorationSlot |> Option.map (fun (slot, _maybeDeco) -> (slot, None))
+    let removeDecoration decorationSlot =
+        decorationSlot |> Option.map (fun (slot, _maybeDeco) -> (slot, None))
 
 type DecorationSlotsPosition =
     | First
@@ -34,12 +34,12 @@ type DecorationSlots = {
         Third = None
     }
 
-    static member removeAllDecorations (decorationSlots: DecorationSlots) = 
-      { decorationSlots with 
+    static member removeAllDecorations(decorationSlots: DecorationSlots) = {
+        decorationSlots with
             First = decorationSlots.First |> DecorationSlot.removeDecoration
             Second = decorationSlots.Second |> DecorationSlot.removeDecoration
-            Third = decorationSlots.Third |> DecorationSlot.removeDecoration      
-      }
+            Third = decorationSlots.Third |> DecorationSlot.removeDecoration
+    }
 
     static member FromSlots(slots: Slot array) =
         let (slots: (Slot * Decoration option) option array) =
@@ -73,12 +73,12 @@ type DecorationSlots = {
         | Third -> this.Third
 
     static member skillsFromDecorationSlots(decorationSlots: DecorationSlots) =
-        [|
+        [
             decorationSlots.First |> DecorationSlot.skillsFromDecorationSlot
             decorationSlots.Second |> DecorationSlot.skillsFromDecorationSlot
             decorationSlots.Third |> DecorationSlot.skillsFromDecorationSlot
-        |]
-        |> Array.concat
+        ]
+        |> List.concat
 
     static member asSlots(decorationSlots: DecorationSlots) =
         [ First; Second; Third ]
@@ -86,8 +86,8 @@ type DecorationSlots = {
 
 type Armor with
     static member skillsFromArmor((armor: Armor), decorationSlots) =
-        [| decorationSlots |> DecorationSlots.skillsFromDecorationSlots; armor.Skills |]
-        |> Array.concat
+        [ decorationSlots |> DecorationSlots.skillsFromDecorationSlots; armor.Skills ]
+        |> List.concat
 
 type ChosenSet = {
     Weapon: (Weapon * DecorationSlots) option
@@ -153,61 +153,61 @@ type ChosenSet = {
             matchingArmorSet |> Option.bind (fun matchingArmorSet -> matchingArmorSet.Bonus)
 
         let armorSetBonuses =
-            [|
+            [
                 chosenSet.Headgear
                 chosenSet.Chest
                 chosenSet.Gloves
                 chosenSet.Waist
                 chosenSet.Legs
-            |]
-            |> Array.choose id
-            |> Array.map fst
-            |> Array.choose (fun armor -> armor.ArmorSet |> tryFindMatchingArmorSetBonus)
+            ]
+            |> List.choose id
+            |> List.map fst
+            |> List.choose (fun armor -> armor.ArmorSet |> tryFindMatchingArmorSetBonus)
 
         let armorSetRanks =
             armorSetBonuses
-            |> Array.groupBy id
-            |> Array.map (fun (a, b) -> a, b |> Array.length)
-            |> Array.map (fun (bonus, count) -> [|
-                for rank in bonus.Ranks |> Array.filter (fun r -> r.Pieces <= count) -> bonus, rank
-            |])
-            |> Array.concat
+            |> List.groupBy id
+            |> List.map (fun (a, b) -> a, b |> List.length)
+            |> List.map (fun (bonus, count) -> [
+                for rank in bonus.Ranks |> List.filter (fun r -> r.Pieces <= count) -> bonus, rank
+            ])
+            |> List.concat
 
         armorSetRanks
 
     static member allSkillRanks(chosenSet: ChosenSet) =
         let skillsFromArmor =
-            [|
+            [
                 chosenSet.Headgear
                 chosenSet.Chest
                 chosenSet.Gloves
                 chosenSet.Waist
                 chosenSet.Legs
-            |]
-            |> Array.choose (Option.map Armor.skillsFromArmor)
-            |> Array.concat
+            ]
+            |> List.choose (Option.map Armor.skillsFromArmor)
+            |> List.concat
 
         let skillsFromCharm =
             chosenSet.Charm
             |> Option.map (fun (charm, charmRank) -> charmRank.Skills)
-            |> Option.defaultValue [||]
+            |> Option.defaultValue []
 
         let skillsFromWeapon =
             chosenSet.Weapon
             |> Option.map (
                 (fun (weapon, slots) -> [| slots |> DecorationSlots.skillsFromDecorationSlots (*; weapon.Skills*) |])
-                >> Array.concat
+                >> List.concat
             )
-            |> Option.defaultValue [||]
+            |> Option.defaultValue []
 
-        [ skillsFromArmor; skillsFromCharm; skillsFromWeapon ] |> Array.concat
+        [ skillsFromArmor; skillsFromCharm; skillsFromWeapon ] |> List.concat
 
-let accumulateSkills (skills: SkillRank array) =
+let accumulateSkills (skills: SkillRank list) =
     skills
-    |> Array.groupBy (fun sr -> sr.Skill)
-    |> Array.map (fun (skill, items) ->
+    |> List.groupBy (fun sr -> sr.Skill)
+    |> List.map (fun (skill, items) ->
         items
-        |> Array.reduce (fun skillRankState newSkillRank -> {
+        |> List.reduce (fun skillRankState newSkillRank -> {
             skillRankState with
                 Level = skillRankState.Level + newSkillRank.Level
         }))
@@ -217,9 +217,8 @@ type ChosenSet with
         chosenSet
         |> ChosenSet.allSkillRanks
         |> accumulateSkills
-        |> Array.choose (fun decoSr ->
+        |> List.choose (fun decoSr ->
             skills
             |> List.filter (fun sk -> skillRankOfSkill sk decoSr)
             |> List.tryExactlyOne
             |> Option.map (fun sk -> sk, decoSr.Level))
-        |> List.ofArray

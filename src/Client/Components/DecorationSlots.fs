@@ -12,7 +12,7 @@ module DecorationSlots =
     let Component
         (props:
             {|
-                Decorations: Decoration seq
+                Decorations: Decoration list
                 ChosenDecoSlots: PropDrill<DecorationSlots>
             |})
         =

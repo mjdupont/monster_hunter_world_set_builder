@@ -14,15 +14,15 @@ module Armor =
     let Component
         (props:
             {|
-                Decorations: Decoration seq
-                Armor: Armor seq
+                Decorations: Decoration list
+                Armor: Armor list
                 ChosenArmor: PropDrill<(Armor * DecorationSlots) option>
             |})
         =
 
         let findPieceFromId (id: string) : Armor option =
-            let matchingPieces = props.Armor |> Seq.filter (fun p -> p.Id |> sprintf "%i" = id)
-            matchingPieces |> Seq.tryExactlyOne
+            let matchingPieces = props.Armor |> List.filter (fun p -> p.Id |> sprintf "%i" = id)
+            matchingPieces |> List.tryExactlyOne
 
         let updateArmorIfDifferent (armor: Armor option) =
             match armor with
@@ -54,7 +54,7 @@ module Armor =
                                 SelectOption.Group {
                                     name = "Low Rank"
                                     items = [
-                                        for a in props.Armor |> Seq.filter (fun a -> a.Rank = Rank.Low) ->
+                                        for a in props.Armor |> List.filter (fun a -> a.Rank = Rank.Low) ->
                                             {
                                                 value = a.Id |> sprintf "%i"
                                                 name = a.Name
@@ -65,7 +65,7 @@ module Armor =
                                 SelectOption.Group {
                                     name = "High Rank"
                                     items = [
-                                        for a in props.Armor |> Seq.filter (fun a -> a.Rank = Rank.High) ->
+                                        for a in props.Armor |> List.filter (fun a -> a.Rank = Rank.High) ->
                                             {
                                                 value = a.Id |> sprintf "%i"
                                                 name = a.Name
@@ -76,7 +76,7 @@ module Armor =
                                 SelectOption.Group {
                                     name = "Master Rank"
                                     items = [
-                                        for a in props.Armor |> Seq.filter (fun a -> a.Rank = Rank.Master) ->
+                                        for a in props.Armor |> List.filter (fun a -> a.Rank = Rank.Master) ->
                                             {
                                                 value = a.Id |> sprintf "%i"
                                                 name = a.Name

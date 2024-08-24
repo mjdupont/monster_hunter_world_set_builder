@@ -17,7 +17,7 @@ open GameData.APIData
 type Model = {
     GameData: PartialDeferred<LoadingMHWData, MHWData, string>
     ChosenSet: ChosenSet
-    SkillList: SkillList
+    RequestedSkills: RequestedSkills
     SearchStatus: SearchStatus
     UserData: UserData
 }
@@ -31,7 +31,7 @@ type Msg =
     | SetSearchStatus of SearchStatus
 
     | UpdateChosenSet of ChosenSet
-    | UpdateSkillList of SkillList
+    | UpdateRequestedSkills of RequestedSkills
     | UpdateUserData of UserData
     | NoOp
 
@@ -59,7 +59,7 @@ let init () : (Model * Cmd<Msg>) =
             ChosenSet.Default with
                 Weapon = customWeapon
         }
-        SkillList = SkillList []
+        RequestedSkills = RequestedSkills Map.empty
         SearchStatus = NotAsked
         UserData = UserData.Default
     }
@@ -154,15 +154,15 @@ let update msg (model: Model) =
 
             let cmd =
                 match gameData with
-                | PartialDeferred.Success gameData ->
+                | PartialDeferred.Success(gameData': MHWData) ->
                     Cmd.batch [
                         Cmd.OfAsync.perform
                             (fun () ->
                                 ChosenSet.readFromWebStorage
-                                    gameData.Decorations
-                                    gameData.Weapons
-                                    gameData.Armor
-                                    gameData.Charms)
+                                    gameData'.Decorations
+                                    gameData'.Weapons
+                                    gameData'.Armor
+                                    gameData'.Charms)
                             ()
                             (fun chosenSet ->
                                 UpdateChosenSet(
@@ -173,11 +173,13 @@ let update msg (model: Model) =
                                     }
                                 ))
                         Cmd.OfAsync.perform
-                            (fun () -> SkillList.readFromWebStorage gameData.Skills)
+                            (fun () -> RequestedSkills.readFromWebStorage gameData'.Skills)
                             ()
-                            (fun skillList -> UpdateSkillList(skillList |> Option.defaultValue (SkillList [])))
+                            (fun skillList ->
+                                UpdateRequestedSkills(skillList |> Option.defaultValue (RequestedSkills Map.empty)))
                         Cmd.OfAsync.perform
-                            (fun () -> UserData.readFromWebStorage gameData.Armor gameData.Charms gameData.Decorations)
+                            (fun () ->
+                                UserData.readFromWebStorage gameData'.Armor gameData'.Charms gameData'.Decorations)
                             ()
                             (fun maybeUserData ->
                                 match maybeUserData with
@@ -185,10 +187,10 @@ let update msg (model: Model) =
                                 | None ->
                                     UpdateUserData(
                                         UserData.allItems
-                                            gameData.Skills
-                                            gameData.Armor
-                                            gameData.Charms
-                                            gameData.Decorations
+                                            gameData'.Skills
+                                            gameData'.Armor
+                                            gameData'.Charms
+                                            gameData'.Decorations
                                     ))
                     ]
 
@@ -201,17 +203,15 @@ let update msg (model: Model) =
     | UpdateChosenSet set ->
         { model with ChosenSet = set }, Cmd.OfAsync.perform ChosenSet.storeToWebStorage set ignoreMsg
 
-    | UpdateSkillList list ->
+    | UpdateRequestedSkills requestedSkills ->
         {
             model with
-                SkillList = list |> (fun (SkillList sl) -> SkillList(sl |> List.sort))
+                RequestedSkills = requestedSkills
         },
-        Cmd.OfAsync.perform SkillList.storeToWebStorage list ignoreMsg
+        Cmd.OfAsync.perform RequestedSkills.storeToWebStorage requestedSkills ignoreMsg
 
     | UpdateUserData userData ->
         { model with UserData = userData }, Cmd.OfAsync.perform UserData.storeToWebStorage userData ignoreMsg
-
-
 
     | FindMatchingSet requestedSkills ->
         let findSetAsync (gameData: MHWData) = async {
@@ -219,14 +219,29 @@ let update msg (model: Model) =
 
             let charms =
                 (model.UserData.Charms
-                 |> List.choose (fun (c, maxR) -> c.Ranks |> Array.filter (fun cr -> cr.Level = maxR) |> Array.tryHead |> Option.map (fun cr -> c, cr)))
+                 |> List.choose (fun (c, maxR) ->
+                     c.Ranks
+                     |> List.filter (fun cr -> cr.Level = maxR)
+                     |> List.tryHead
+                     |> Option.map (fun cr -> c, cr)))
 
             let decorations = model.UserData.Decorations
 
             let maybeSet =
-                match assignArmor3 1 gameData.Skills model.ChosenSet armor charms decorations requestedSkills gameData.ArmorSets with
+                match
+                    assignArmor3
+                        1
+                        gameData.Skills
+                        model.ChosenSet
+                        armor
+                        charms
+                        decorations
+                        requestedSkills
+                        gameData.ArmorSets
+                with
                 | [] -> None
                 | set :: rest -> Some(set, rest)
+
             return maybeSet
 
         }
@@ -239,6 +254,7 @@ let update msg (model: Model) =
         let onFail _e = SetSearchStatus Failed
 
         printfn "Attempting to launch async set search"
+
         match model.GameData, model.ChosenSet.Weapon with
         | PartialDeferred.Success gameData, _ -> model, Cmd.OfAsync.either findSetAsync gameData onSuccess onFail
         | _ -> model, Cmd.ofMsg (SetSearchStatus Failed)
@@ -259,13 +275,14 @@ let view (model: Model) dispatch =
     | PartialDeferred.InProgress _ -> Html.text "Loading..."
     | PartialDeferred.Failure f -> Html.text (sprintf "Failed with \"%s\" and maybe more errors" f)
     | PartialDeferred.Success gameData ->
-        let sortedSkills =
-            partitionSkills gameData.ArmorSets gameData.Decorations gameData.Skills
 
-        let armorSetSkills = sortedSkills.ArmorSetSkills
-        let armorSetAndDecorationSkills = sortedSkills.ArmorSetAndDecorationSkills
-        let armorUniqueSkills = sortedSkills.ArmorUniqueSkills
-        let decorationSkills = sortedSkills.DecorationSkills
+        let armorSetSkills = gameData.Memoized.PartitionedSkills.ArmorSetSkills
+
+        let armorSetAndDecorationSkills =
+            gameData.Memoized.PartitionedSkills.ArmorSetAndDecorationSkills
+
+        let armorUniqueSkills = gameData.Memoized.PartitionedSkills.ArmorUniqueSkills
+        let decorationSkills = gameData.Memoized.PartitionedSkills.DecorationSkills
 
         let updateArmorPiece (armorType: ArmorType) newPiece =
             match armorType with
@@ -297,17 +314,16 @@ let view (model: Model) dispatch =
         let armorProps
             armorType
             : ({|
-                  Decorations: Decoration seq
-                  Armor: Armor seq
+                  Decorations: Decoration list
+                  Armor: Armor list
                   ChosenArmor: HelperFunctions.PropDrill<(Armor * DecorationSlots) option>
               |})
             =
-            let filteredArmor = gameData.Armor |> Seq.filter (fun a -> a.Type = armorType)
             let updateArmor = (updateArmorPiece armorType >> UpdateChosenSet >> dispatch)
 
             {|
                 Decorations = gameData.Decorations
-                Armor = filteredArmor
+                Armor = gameData.ArmorMap |> Map.tryFind armorType |> Option.defaultValue []
                 ChosenArmor = {
                     Value = model.ChosenSet.tryGetPiece armorType
                     Update = updateArmor
@@ -337,7 +353,10 @@ let view (model: Model) dispatch =
                                 Html.button [
                                     let newChosenSet = {
                                         ChosenSet.Default with
-                                            Weapon = model.ChosenSet.Weapon |> Option.map (fun (weapon, slots) -> weapon, slots |> DecorationSlots.removeAllDecorations ) 
+                                            Weapon =
+                                                model.ChosenSet.Weapon
+                                                |> Option.map (fun (weapon, slots) ->
+                                                    weapon, slots |> DecorationSlots.removeAllDecorations)
                                     }
 
                                     prop.onClick (fun _me -> ((UpdateChosenSet newChosenSet) |> dispatch))
@@ -379,11 +398,8 @@ let view (model: Model) dispatch =
                             prop.children [
                                 SetSearcher.Component {|
                                     Skills = decorationSkills @ armorUniqueSkills @ armorSetAndDecorationSkills
-                                    SkillList =
-                                        (model.SkillList
-                                         |> (fun (SkillList sl) ->
-                                             SkillList(sl |> List.sortBy (fun (skill: Skill, level) -> skill.Name))))
-                                    UpdateSkillList = (UpdateSkillList >> dispatch)
+                                    RequestedSkills = (model.RequestedSkills)
+                                    UpdateRequestedSkills = (UpdateRequestedSkills >> dispatch)
                                     SubmitSkills =
                                         (fun skills ->
                                             do dispatch (SetSearchStatus Searching)

@@ -25,8 +25,8 @@ module ArmorSetSkillsDisplay =
             for skillRank in totalSkills do
                 let skillFromData =
                     props.GameData.Skills
-                    |> Seq.filter (fun skill -> skillRankOfSkill skill skillRank)
-                    |> Seq.tryExactlyOne
+                    |> List.filter (fun skill -> skillRankOfSkill skill skillRank)
+                    |> List.tryExactlyOne
 
                 let skillColor =
                     match skillFromData with
@@ -34,8 +34,8 @@ module ArmorSetSkillsDisplay =
                     | Some skillData ->
                         let maxLevel =
                             skillData.Ranks
-                            |> Seq.sortByDescending (fun sr -> sr.Level)
-                            |> Seq.head
+                            |> List.sortByDescending (fun sr -> sr.Level)
+                            |> List.head
                             |> (fun sr -> sr.Level)
 
                         match skillRank with

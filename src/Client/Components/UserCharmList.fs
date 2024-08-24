@@ -36,9 +36,8 @@ module UserCharmList =
                             (fun (charm: Charm) -> charm.Name)
                             (fun charm ->
                                 charm.Ranks
-                                |> Array.map (fun cr -> cr.Skills |> Array.map (fun sr -> sr.SkillName))
-                                |> Array.concat
-                                |> List.ofArray)
+                                |> List.map (fun cr -> cr.Skills |> List.map (fun sr -> sr.SkillName))
+                                |> List.concat)
                             searchWord
                             charm)
 
@@ -61,7 +60,7 @@ module UserCharmList =
                                     prop.id charm.Name
                                     prop.type' "number"
                                     prop.min 0
-                                    prop.max (charm.Ranks |> Array.map (fun cr -> cr.Level) |> Array.max)
+                                    prop.max (charm.Ranks |> List.map (fun cr -> cr.Level) |> List.max)
                                     prop.onChange (updateCharms charm)
                                     prop.value maxOwnedRank
                                     prop.style [ style.color "black"; style.flexShrink 0; style.width 32 ]

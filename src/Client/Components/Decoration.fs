@@ -11,7 +11,7 @@ module Decoration =
     let Component
         (props:
             {|
-                Decorations: Decoration seq
+                Decorations: Decoration list
                 Slot: Slot
                 ChosenDecoration: PropDrill<Decoration option>
             |})
@@ -19,9 +19,7 @@ module Decoration =
         let (Slot slot) = props.Slot
 
         let decorations: Decoration list =
-            props.Decorations
-            |> List.ofSeq
-            |> List.filter (fun decoration -> decoration.Slot <= slot)
+            props.Decorations |> List.filter (fun decoration -> decoration.Slot <= slot)
 
         let findDecorationFromId (id: string) =
             let matchingDecoration =

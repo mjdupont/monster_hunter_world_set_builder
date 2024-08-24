@@ -29,18 +29,18 @@ module Sidebar =
                             let transition_transform_button = "translate-x-full"
 
                             prop.className
-                                $"sidebar-toggle absolute {transition_transform_button} right-0 transition-transform duration-300 z-51 w-12 h-12 bg-gray-700 text-white rounded-lg focus:outline-none flex items-center justify-center"
+                                $"sidebar-toggle absolute translate-x-full right-0 transition-transform duration-300 z-51 w-12 h-12 bg-gray-700 text-white rounded-lg focus:outline-none flex items-center justify-center"
 
                             prop.onClick (toggleSidebar)
                             prop.children [ Html.text (if isOpen then "<" else openName) ]
                         ]
                     ]
                 ]
-
-                Html.div [
-                    prop.className "sidebar-content"
-                    prop.style [ style.height.inheritFromParent ]
-                    prop.children [ props.Content ]
-                ]
+                if isOpen then
+                    Html.div [
+                        prop.className "sidebar-content"
+                        prop.style [ style.height.inheritFromParent ]
+                        prop.children [ props.Content ]
+                    ]
             ]
         ]

@@ -20,8 +20,8 @@ module Charm =
             charm
             |> Option.bind (fun c ->
                 c.Ranks
-                |> Array.sortByDescending (fun sr -> sr.Level)
-                |> Array.tryHead
+                |> List.sortByDescending (fun sr -> sr.Level)
+                |> List.tryHead
                 |> Option.map (fun cr -> c, cr))
 
         let findCharmFromId (id: string) =
@@ -49,9 +49,9 @@ module Charm =
             | None -> false
             | Some charm ->
                 charm.Ranks
-                |> Array.exists (fun (cr: CharmRank) ->
+                |> List.exists (fun (cr: CharmRank) ->
                     cr.Skills
-                    |> Array.exists (fun sr ->
+                    |> List.exists (fun sr ->
                         sr.SkillName.ToLowerInvariant().StartsWith(searchQuery.ToLowerInvariant())))
 
         let filterOptions (item: SelectItem) (searchQuery: string) =
@@ -61,9 +61,9 @@ module Charm =
 
         let findCharmRankFromLevel (charm: Charm) (level: string) : CharmRank option =
             let matchingCharmRank =
-                charm.Ranks |> Array.filter (fun cr -> cr.Level |> string = level)
+                charm.Ranks |> List.filter (fun cr -> cr.Level |> string = level)
 
-            matchingCharmRank |> Array.tryHead
+            matchingCharmRank |> List.tryHead
 
         Html.div [
             prop.className "charm-selector flex flex-row p-4 w-full justify-center items-center gap-8"
@@ -95,7 +95,7 @@ module Charm =
                 match props.ChosenCharm.Value with
                 | None -> Html.none
                 | Some(chosenCharm, charmRank) when chosenCharm.Ranks.Length = 1 ->
-                    Html.text ((chosenCharm.Ranks |> Array.head).Level |> string)
+                    Html.text ((chosenCharm.Ranks |> List.head).Level |> string)
                 | Some(chosenCharm, charmRank) ->
                     SelectSearch.selectSearch [
                         selectSearch.value (charmRank.Level |> string)

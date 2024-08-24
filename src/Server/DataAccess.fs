@@ -59,6 +59,7 @@ module InferredTypes =
             Ranks =
                 skill.Ranks
                 |> Array.map (fun sr -> sr.JsonValue.ToString() |> SkillRank.Api.Parse |> SkillRank.toReal skillNames)
+                |> List.ofArray
             Slug = skill.Slug
         }
 
@@ -101,6 +102,7 @@ module InferredTypes =
                         |> _.ToString()
                         |> SkillRank.Api.Parse
                         |> SkillRank.toReal skillNames)
+                    |> List.ofArray
             }
 
         let loadDecorations (skillNames: Map<int, string>) : Async<Decoration list> = async {
@@ -226,6 +228,7 @@ module InferredTypes =
                     skill.JsonValue.ToString()
                     |> SkillRank.Api.Parse
                     |> (SkillRank.toReal skillNames))
+                |> List.ofArray
             Slots = armor.Slots |> Array.map (fun slot -> Slot slot.Rank)
             Slug = armor.Id.ToString()
             Type = armor.Type |> (|ArmorType|_|) |> Option.defaultValue APIDataTypes.ArmorType.Legs //TODO Handle this default better
@@ -285,6 +288,7 @@ module InferredTypes =
                     SkillName = skill.SkillName
                     Modifiers = [||] // TODO
                 })
+                |> List.ofArray
         }
 
 
@@ -308,6 +312,7 @@ module InferredTypes =
                     charmRank.JsonValue.ToString()
                     |> CharmRank.Api.Parse
                     |> CharmRank.toReal skillNames)
+                |> List.ofArray
             Slug = charm.Slug
         }
 
@@ -349,7 +354,7 @@ module InferredTypes =
                 |> Option.map (fun bonus -> {
                     Id = bonus.Id
                     Name = bonus.Name
-                    Ranks = [|
+                    Ranks = [
                         for rank in bonus.Ranks ->
                             {
                                 Pieces = rank.Pieces
@@ -358,7 +363,7 @@ module InferredTypes =
                                     |> SkillRank.Api.Parse
                                     |> (SkillRank.toReal skillNames)
                             }
-                    |]
+                    ]
                 })
         }
 

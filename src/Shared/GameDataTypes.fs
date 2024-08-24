@@ -70,7 +70,7 @@ type Decoration = {
     Name: string
     Rarity: int
     Slot: int
-    Skills: SkillRank[]
+    Skills: SkillRank list
     IconUri: string option
 } with
 
@@ -117,7 +117,7 @@ type Armor = {
     Defense: Defense
     Resistances: Resistances
     Slots: Slot[]
-    Skills: SkillRank[]
+    Skills: SkillRank list
     ArmorSet: int
 // ; Assets: ArmorAssets
 // ; Crafting: ArmorCraftingInfo
@@ -129,7 +129,7 @@ type Armor = {
 type CharmRank = {
     Level: int
     Rarity: int
-    Skills: SkillRank[]
+    Skills: SkillRank list
 // ; Crafting: CharmRankCrafting
 }
 
@@ -138,7 +138,7 @@ type Charm = {
     Id: int
     Slug: string
     Name: string
-    Ranks: CharmRank[]
+    Ranks: CharmRank list
 } with
 
     override this.ToString() = this.Name
@@ -148,7 +148,7 @@ type ArmorSetBonusRank = { Pieces: int; Skill: SkillRank }
 type ArmorSetBonus = {
     Id: int
     Name: string
-    Ranks: ArmorSetBonusRank[]
+    Ranks: ArmorSetBonusRank list
 }
 
 type ArmorSet = {
@@ -165,7 +165,7 @@ type Skill = {
     Slug: string
     Name: string
     Description: string
-    Ranks: SkillRank[]
+    Ranks: SkillRank list
 } with
 
     override this.ToString() = this.Name

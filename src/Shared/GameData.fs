@@ -3,6 +3,7 @@ module GameData
 
 module APIData =
     open APIDataTypes
+    open Helpers.Prelude
 
     ///
     /// Compares a SkillRank to a Skill to determine if the SkillRank is of the skill.
@@ -15,7 +16,7 @@ module APIData =
     ///
     let skillCaps skills =
         skills
-        |> List.map (fun skill -> skill, (skill.Ranks |> Array.map (fun sr -> sr.Level) |> Array.max))
+        |> List.map (fun skill -> skill, (skill.Ranks |> List.map (fun sr -> sr.Level) |> List.max))
         |> Map.ofList
 
     let asCounts (xs: 'a seq) = xs |> Seq.countBy id |> List.ofSeq
@@ -29,37 +30,36 @@ module APIData =
     ///
     /// Returns the skills contained in an object that contains skills, along with their levels.
     ///
-    let inline containedSkills (skills: Skill list) (skillSource: 'a when 'a: (member Skills: SkillRank array)) =
+    let inline containedSkills (skills: Skill list) (skillSource: 'a when 'a: (member Skills: SkillRank list)) =
         skillSource.Skills
-        |> Array.choose (fun decoSr ->
+        |> List.choose (fun decoSr ->
             skills
             |> List.filter (fun sk -> skillRankOfSkill sk decoSr)
             |> List.tryExactlyOne
             |> Option.map (fun sk -> sk, decoSr.Level))
-        |> List.ofArray
 
 
     ///
     /// Check if a given decoration provides a given skill.
     ///
     let decoContainsSkill (skill: Skill) (deco: Decoration) =
-        deco.Skills |> Array.filter (skillRankOfSkill skill) |> (not << Array.isEmpty)
+        deco.Skills |> List.filter (skillRankOfSkill skill) |> (not << List.isEmpty)
 
     ///
     /// Check if a given decoration has any skill that is not the provided skill.
     ///
     let decoContainsOtherSkill (skill: Skill) (deco: Decoration) =
         deco.Skills
-        |> Array.filter (not << (skillRankOfSkill skill))
-        |> (not << Array.isEmpty)
+        |> List.filter (not << (skillRankOfSkill skill))
+        |> (not << List.isEmpty)
 
     ///
     /// Calculates the level of a particular skill in a decoration. If the skill is not present, returns None.
     ///
     let decoSkillLevel (skill: Skill) (deco: Decoration) =
         deco.Skills
-        |> Array.filter (skillRankOfSkill skill)
-        |> Array.tryExactlyOne
+        |> List.filter (skillRankOfSkill skill)
+        |> List.tryExactlyOne
         |> Option.map (fun sr -> sr.Level)
 
     ///
@@ -118,14 +118,14 @@ module APIData =
         let armorSetBonusSkillIds =
             armorSets
             |> List.choose (fun (aSet: ArmorSet) -> aSet.Bonus)
-            |> List.map (fun asb -> asb.Ranks |> List.ofArray)
+            |> List.map (fun asb -> asb.Ranks)
             |> List.concat
             |> List.map (fun asbr -> asbr.Skill.Skill)
             |> List.distinct
 
         let decorationSkillBonusIds =
             decorations
-            |> List.map (fun deco -> deco.Skills |> List.ofArray)
+            |> List.map (fun deco -> deco.Skills)
             |> List.concat
             |> List.map (fun sr -> sr.Skill)
             |> List.distinct
@@ -142,6 +142,18 @@ module APIData =
         | false, true -> DecorationSkill
         | false, false -> ArmorUniqueSkill
 
+    type PartitionedSkills = {
+        ArmorSetSkills: Skill list
+        DecorationSkills: Skill list
+        ArmorUniqueSkills: Skill list
+        ArmorSetAndDecorationSkills: Skill list
+    }
+
+    type Memoized = {
+        PartitionedSkills: PartitionedSkills
+        DecorationMaxCount: Map<Decoration, int>
+    }
+
     ///
     /// Splits skills into ArmorSet skills, Armor-Unique skills, Decoration skills, ArmorSet/Decoration Skills (Mind's Eye/Ballistics, Guard Up)
     ///
@@ -149,12 +161,12 @@ module APIData =
         let mapped =
             skills |> List.groupBy (categorizeSkill armorSets decorations) |> Map.ofList
 
-        {|
+        {
             ArmorSetSkills = mapped |> Map.tryFind ArmorSetSkill |> Option.defaultValue []
             DecorationSkills = mapped |> Map.tryFind DecorationSkill |> Option.defaultValue []
             ArmorUniqueSkills = mapped |> Map.tryFind ArmorUniqueSkill |> Option.defaultValue []
             ArmorSetAndDecorationSkills = mapped |> Map.tryFind ArmorSetAndDecorationSkill |> Option.defaultValue []
-        |}
+        }
 
 
     ///
@@ -168,14 +180,14 @@ module APIData =
         let hardDecorations =
             decorations
             |> List.filter (fun (decoration: Decoration, count: int) ->
-                decoration.Skills |> Array.exists (fun sr -> sr.Level = 3))
+                decoration.Skills |> List.exists (fun sr -> sr.Level = 3))
 
         let possibleHardContributions = [
             for requestedSkill, level in requestedSkills do
                 for hardDecoration, count in hardDecorations do
                     if
                         hardDecoration.Skills
-                        |> Array.tryExactlyOne
+                        |> List.tryExactlyOne
                         |> Option.map (fun sr -> skillRankOfSkill requestedSkill sr)
                         |> Option.defaultValue false
                     //Note this relies on integer division truncating any fractional component

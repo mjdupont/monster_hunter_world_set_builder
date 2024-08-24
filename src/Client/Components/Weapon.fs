@@ -14,17 +14,17 @@ module Weapon =
     let Component
         (props:
             {|
-                Decorations: Decoration seq
-                Weapons: Weapon seq
+                Decorations: Decoration list
+                Weapons: Weapon list
                 ChosenWeapon: PropDrill<(Weapon * DecorationSlots) option>
             |})
         =
 
         let findWeaponFromId (id: string) =
             let matchingPieces =
-                props.Weapons |> Seq.filter (fun w -> w.Id |> sprintf "%i" = id)
+                props.Weapons |> List.filter (fun w -> w.Id |> sprintf "%i" = id)
 
-            matchingPieces |> Seq.tryHead
+            matchingPieces |> List.tryHead
 
         let updateWeaponIfDifferent (weapon: Weapon option) =
             match weapon with

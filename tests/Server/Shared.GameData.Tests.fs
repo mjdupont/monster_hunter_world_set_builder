@@ -51,7 +51,7 @@ let gameDataTypes =
         testCase "skillRankOfSkill: Matches SkillRanks to Skills"
         <| fun _ ->
             let allSkillRanksFromDecos =
-                decorations |> List.map (fun deco -> deco.Skills |> List.ofArray) |> List.concat
+                decorations |> List.map (fun deco -> deco.Skills) |> List.concat
 
             for skill in skills do
                 let matchingSkills =
@@ -318,7 +318,7 @@ let gameDataTypes =
                 |> List.map (fun (hardDeco, count) ->
                     match
                         hardDeco.Skills
-                        |> Array.tryExactlyOne
+                        |> List.tryExactlyOne
                         |> Option.filter (fun sr -> sr.SkillName = "Defense Boost" && sr.Level = 3)
                     with
                     | Some _ -> (hardDeco, 1)

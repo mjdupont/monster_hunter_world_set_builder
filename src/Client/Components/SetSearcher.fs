@@ -12,35 +12,40 @@ module SetSearcher =
     let Component
         (props:
             {|
-                Skills: Skill seq
-                SkillList: SkillList
-                UpdateSkillList: SkillList -> unit
+                Skills: Skill list
+                RequestedSkills: RequestedSkills
+                UpdateRequestedSkills: RequestedSkills -> unit
                 SubmitSkills: (Skill * int) list -> unit
             |})
         =
 
-        let (SkillList skillList) = props.SkillList
+        let (RequestedSkills requestedSkills) = props.RequestedSkills
 
         let unselectedSkills =
+            let skillsInRequestedSkills = requestedSkills |> Map.keys |> List.ofSeq
+
             (props.Skills
-             |> Seq.filter (fun skill ->
-                 not (skillList |> List.map (fst >> (fun sk -> sk.Name)) |> List.contains skill.Name)))
+             |> List.filter (fun skill ->
+                 not (
+                     skillsInRequestedSkills
+                     |> List.map (fun sk -> sk.Name)
+                     |> List.contains skill.Name
+                 )))
+
 
         let addSkill (skill: (Skill * int) option) =
-            props.UpdateSkillList(SkillList(skillList |> List.append ([ skill ] |> List.choose id)))
+            match skill with
+            | Some(skill, level) -> props.UpdateRequestedSkills(RequestedSkills(requestedSkills |> Map.add skill level))
+            | None -> ()
 
         let removeSkill (skill: Skill) =
-            props.UpdateSkillList(SkillList(skillList |> List.filter (fun (sk, r) -> not (sk.Name = skill.Name))))
+            props.UpdateRequestedSkills(RequestedSkills(requestedSkills |> Map.remove skill))
 
         let setSkillLevel (skill: Skill) newLevel =
-            props.UpdateSkillList(
-                SkillList(
-                    skillList
-                    |> List.map (fun (sk, l) -> if (sk.Name = skill.Name) then (sk, newLevel) else (sk, l))
-                )
-            )
+            props.UpdateRequestedSkills(RequestedSkills(requestedSkills |> Map.add skill newLevel))
 
-        let clearSkills () = props.UpdateSkillList(SkillList [])
+        let clearSkills () =
+            props.UpdateRequestedSkills(RequestedSkills Map.empty)
 
         Html.div [
             prop.className "SetSearcher flex flex-col gap-1 p-1"
@@ -48,7 +53,7 @@ module SetSearcher =
                 Html.div [
                     prop.className "selected-skills-list flex-item flex flex-col gap-1"
                     prop.children [
-                        for (skill, rank) in skillList ->
+                        for KeyValue(skill, rank) in requestedSkills ->
                             SelectedSkill.Component {|
                                 Skill = skill
                                 Rank = rank
@@ -65,14 +70,14 @@ module SetSearcher =
                     prop.className "flex flex-row justify-evenly"
                     prop.children [
                         Html.button [
-                            prop.onClick (fun _me -> props.SubmitSkills skillList)
+                            prop.onClick (fun _me -> props.SubmitSkills(requestedSkills |> Map.toList))
                             prop.children [ Html.text "Find Set" ]
                             prop.style [ style.margin.auto ]
                         ]
 
                         Html.button [
                             prop.type' "button"
-                            prop.disabled (props.Skills |> Seq.isEmpty)
+                            prop.disabled (props.Skills |> List.isEmpty)
                             prop.onClick (fun _me -> clearSkills ())
                             prop.children [ Html.text "Clear All" ]
                             prop.style [ style.margin.auto ]

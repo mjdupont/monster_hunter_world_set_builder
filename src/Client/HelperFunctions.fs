@@ -42,7 +42,7 @@ let inline matchesByNameOrSkillsByPredicate
 
 let inline matchesByNameOrSkills
     (queryString: string)
-    (element: ^a when ^a: (member Name: string) and ^a: (member Skills: APIDataTypes.SkillRank array))
+    (element: ^a when ^a: (member Name: string) and ^a: (member Skills: APIDataTypes.SkillRank list))
     : bool =
     [ yield element.Name; for sr in element.Skills -> sr.SkillName ]
     |> List.exists (fun nameStr -> nameStr.ToLowerInvariant().StartsWith(queryString.ToLowerInvariant()))
