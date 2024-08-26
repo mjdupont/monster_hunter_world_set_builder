@@ -11,7 +11,7 @@ module WeaponBuilder =
     let Component
         (props:
             {|
-                Decorations: Decoration seq
+                Decorations: Decoration list
                 ChosenWeapon: PropDrill<(Weapon * DecorationSlots) option>
             |})
         =

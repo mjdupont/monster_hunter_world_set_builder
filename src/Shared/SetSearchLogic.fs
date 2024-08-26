@@ -300,8 +300,8 @@ let tryAssignArmorUniqueSkills skills armorByType armorSets decorations chosenSe
 
     let armorUniqueSkills = partitionedSkills.ArmorUniqueSkills
 
-    let containsUniqueSkill uniqueSkill armor =
-        armor
+    let inline containsUniqueSkill uniqueSkill equipItem =
+        equipItem
         |> containedSkills skills
         |> List.filter (fun (s, _) -> s = uniqueSkill)
         |> (not << List.isEmpty)
