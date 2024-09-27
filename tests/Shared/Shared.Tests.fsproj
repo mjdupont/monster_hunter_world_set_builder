@@ -5,6 +5,7 @@
   </PropertyGroup>
   <ItemGroup>
     <None Include="paket.references" />
+    <Compile Include="GameDataLoader.Tests.fs" />
     <Compile Include="Shared.Tests.fs" />
   </ItemGroup>
   <ItemGroup>

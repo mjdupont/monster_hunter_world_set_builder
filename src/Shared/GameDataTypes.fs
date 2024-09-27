@@ -197,42 +197,88 @@ type Weapon = {
 
 /// This module is intended to describe data types relating to parsing data from excel records from Monster Hunter World
 module MHWGameData =
-    type ArmorType =
-        | Regular
-        | FullSet
 
-    type EquipSlot =
-        | Head
-        | Chest
-        | Arms
-        | Waist
-        | Legs
-        | Charm
+    module Armor =
+        type ArmorType =
+            | Regular
+            | FullSet
 
-    type Gender =
-        | Male
-        | Female
-        | Unisex
+        type EquipSlot =
+            | Head
+            | Chest
+            | Arms
+            | Waist
+            | Legs
+            | Charm
 
-    type Resistances = {
-        Fire: int
-        Water: int
-        Ice: int
-        Thunder: int
-        Dragon: int
-    }
+        type Gender =
+            | Male
+            | Female
+            | Unisex
 
+        type Resistances = {
+            Fire: int
+            Water: int
+            Ice: int
+            Thunder: int
+            Dragon: int
+        }
+
+    open Armor
+
+    ///
+    /// Armor, as cleaned data pulled from the game files
+    ///
     type Armor = {
         Name: string
-        Index: uint32
-        Type: ArmorType
+        Index: int
+        ArmorType: ArmorType
         EquipSlot: EquipSlot
-        Rarity: byte
+        Rarity: int
+        Cost: int
         Defense: int
         Resistances: Resistances
         //ModelID1 : int
         Slots: Slot list
-        Set_Skill: int
+        Set_Skill: string
         Gender: Gender
+        Set_Group: int
         Description: string
+    }
+
+    module Decoration =
+        type DecorationSkill = { Id: int; Name: string; Level: int }
+
+    open Decoration
+
+    type Decoration = {
+        Index: int
+        Id: int
+        Name: string
+        Size: int
+        Skill1: DecorationSkill
+        Skill2: DecorationSkill
+        Description: string
+    }
+
+    module SkillLevel =
+        type UnlockSkill = { Id: int; Name: string }
+
+    open SkillLevel
+
+    type SkillLevel = {
+        Index: int
+        Id: int
+        Name: string
+        Level: int
+        UnlockSkills: UnlockSkill list
+        Description: string
+    }
+
+    type SetSkillLevel = {
+        Name: string
+        Id: int
+        Index: int
+        IsSetBonus: bool
+        IconColorID: int
     }

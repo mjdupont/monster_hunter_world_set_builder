@@ -34,6 +34,10 @@ module Storage =
         let! weapons' = InferredTypes.Weapon.loadWeapons
         weapons.AddRange(weapons')
 
+        printfn "Number of skills: %i" skills.Count
+
+        MHWGameDataLoader.Armor.loadArmor () |> ignore
+
         ()
     }
 
