@@ -6,26 +6,26 @@ module DecorationSlots =
     open APIDataTypes
     open ModelData
     open HelperFunctions
-
+    open SetSearchLogic.Interfaces
 
     [<ReactComponent>]
     let Component
         (props:
             {|
                 Decorations: Decoration list
-                ChosenDecoSlots: PropDrill<DecorationSlots>
+                ChosenDecoSlots: PropDrill<DecorationSlots<'d>>
             |})
         =
 
-        let updateDecoration (newDecoration: Decoration option) (decorationSlot: DecorationSlot) : DecorationSlot =
+        let updateDecoration (newDecoration: 'd option when Decoration<'d>) (decorationSlot: DecorationSlot<'d>) : DecorationSlot<'d> =
             decorationSlot
-            |> Option.map (fun (Slot slot, oldDecoration) ->
+            |> Option.map (fun (slot, oldDecoration) ->
                 match oldDecoration, newDecoration with
-                | Some oldDeco, Some newDeco when oldDeco = newDeco -> ((Slot slot), None) // If selecting the same decoration, clear the decoration slot
-                | _, Some newDeco when newDeco.Slot <= slot -> ((Slot slot), newDecoration) // Only update to a new decoration if it can fit in the slot
-                | _ -> (Slot slot, oldDecoration))
+                | Some oldDeco, Some newDeco when oldDeco = newDeco -> (slot, None) // If selecting the same decoration, clear the decoration slot
+                | _, Some newDeco when newDeco.Slot <= slot -> (slot, newDecoration) // Only update to a new decoration if it can fit in the slot
+                | _ -> (slot, oldDecoration))
 
-        let updateDecorationSlot position (newDecoration: Decoration option) =
+        let updateDecorationSlot position (newDecoration: Decoration<'d> option) =
             let updatedDecorationSlots =
                 match position with
                 | First -> {

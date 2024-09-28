@@ -136,14 +136,14 @@ type ChosenSet<'a, 'w, 'c, 'd, 'sb> when Armor<'a, 'd, 'sb> and Charm<'c> and De
         | Waist -> chosenSet.Waist
         | Legs -> chosenSet.Legs
 
-    static member getUnassignedPieces chosenSet = [
+    static member getUnassignedPieces (chosenSet: ChosenSet<'a, 'w, 'c, 'd, 'sb>) = [
         for armorType in ArmorType.allTypes do
             match ChosenSet.tryGetPiece (armorType, chosenSet) with
             | Some piece -> ()
             | _ -> armorType
     ]
 
-    static member getAssignedPieces chosenSet = [
+    static member getAssignedPieces (chosenSet: ChosenSet<'a, 'w, 'c, 'd, 'sb>) = [
         for armorType in ArmorType.allTypes do
             match ChosenSet.tryGetPiece (armorType, chosenSet) with
             | Some piece -> yield piece

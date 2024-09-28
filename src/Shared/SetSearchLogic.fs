@@ -1,4 +1,4 @@
-module SetSearchLogic
+module SetSearchLogicMod
 
 open APIDataTypes
 open Helpers
@@ -38,7 +38,7 @@ let armorSkillContribution remainingSkillNeed decorationReach (armor: 'a when Ar
     armorContribution + decoContribution
 
 
-let calculateReachOfChosenSet decorations (chosenSet:ChosenSet<'a, 'w, 'c, 'd, 'sb>) charms armorByType remainingSkillNeed =
+let calculateReachOfChosenSet (decorations: ('d * int) list) (chosenSet:ChosenSet<'a, 'w, 'c, 'd, 'sb> ) (charms : 'c list) armorByType remainingSkillNeed =
     let getReachOfBestPiece armorType =
         armorByType
         |> Map.find armorType
@@ -295,9 +295,9 @@ module Assignment =
 /// Tries to first assign armor pieces to the set that have the armor-unique skill;
 /// Returns a list of valid sets satisfying armor-unique skills
 ///
-let tryAssignArmorUniqueSkills armorByType armorSets (decorations:'d list) chosenSet requestedSkills : ChosenSet<'a, 'w, 'c, 'd, 'sb> list =
+let tryAssignArmorUniqueSkills armorByType armorSets (decorations:'d list) chosenSet (requestedSkills:SkillAndLevel list) : ChosenSet<'a, 'w, 'c, 'd, 'sb> list =
     let partitionedSkills =
-        partitionSkills armorSets decorations (requestedSkills |> List.map fst)
+        partitionSkills armorSets decorations requestedSkills
 
     let armorUniqueSkills = partitionedSkills.ArmorUniqueSkills
 
@@ -310,7 +310,7 @@ let tryAssignArmorUniqueSkills armorByType armorSets (decorations:'d list) chose
     // For each unique skill, get all the pieces that contain that skill.
     // Copy the chosenSet for each of those pieces that can be added to the chosenSet, and add that piece.
     // Repeat for the next skill, for all previously found chosenSets.
-    let addPieceWithUniqueSkill (chosenSets: ChosenSet<'a, 'w, 'c, 'd, 'sb> list) (uniqueSkill: Skill) = [
+    let addPieceWithUniqueSkill (chosenSets: ChosenSet<'a, 'w, 'c, 'd, 'sb> list) (uniqueSkill: 's when 's :> ISkill) = [
         for cSet in chosenSets do
             match (ChosenSet.getUnassignedPieces cSet) with
             | [] -> () //ChosenSet has no room for more pieces
@@ -319,7 +319,7 @@ let tryAssignArmorUniqueSkills armorByType armorSets (decorations:'d list) chose
                     let piecesWithUniqueSkill =
                         Map.tryFind unassignedPiece armorByType
                         |> Option.defaultValue []
-                        |> List.filter (containsUniqueSkill uniqueSkill.Id)
+                        |> List.filter (containsUniqueSkill uniqueSkill.SkillId)
 
                     for pieceWithUniqueSkill in piecesWithUniqueSkill do
                         yield
@@ -385,6 +385,19 @@ let rec assignArmor3'
     | Some(updatedSet, remainingArmor, remainingCharms) ->
         assignArmor3' fixedSet decorations requestedSkills remainingCharms remainingArmor updatedSet
 
+type TemporarySetBonus =
+  { Ranks : ArmorSetBonusRank list }
+  with
+    interface ISetBonus with
+      member this.Ranks = this.Ranks
+                
+
+type TemporaryArmorSet<'sb> when 'sb : equality and 'sb :> ISetBonus = 
+  { ArmorSetBonus : 'sb option }
+  with 
+    interface IContainsSetBonus<'sb> with
+      member this.SetBonus = this.ArmorSetBonus
+
 let assignArmor3
     n_to_find
     skills
@@ -399,9 +412,12 @@ let assignArmor3
     // Preprocess armorByType, charms
     // Identify Set Skills, choose combinations of pieces from those sets, fix these pieces
     // Iterate on armor assignments for each of these subsets
+    let mapBonusToNew (bonus:ArmorSetBonus) : TemporarySetBonus = { Ranks = bonus.Ranks |> List.map (fun sbr -> {RequiredPieces = sbr.Pieces; SkillId = sbr.Skill.Skill}) }
+
+    let armorSetsAsAbstract = armorSets |> List.map (fun armorSet -> {ArmorSetBonus = armorSet.Bonus |> Option.map mapBonusToNew })
 
     let setsWithUniqueSkills =
-        tryAssignArmorUniqueSkills armorByType armorSets (decorations |> List.map fst) chosenSet requestedSkills
+        tryAssignArmorUniqueSkills armorByType armorSetsAsAbstract (decorations |> List.map fst) chosenSet requestedSkills
 
     let rec assignArmor3outer accumulatedSets fixedSet workingSet' armor' charms' =
         printfn "Accumulated sets: %i" (List.length accumulatedSets)
