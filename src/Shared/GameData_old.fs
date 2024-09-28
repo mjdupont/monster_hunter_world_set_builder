@@ -168,7 +168,6 @@ module APIData =
             ArmorSetAndDecorationSkills = mapped |> Map.tryFind ArmorSetAndDecorationSkill |> Option.defaultValue []
         }
 
-
     ///
     /// Calculates how much a given set of requested skills might benefit from Hard decorations.
     ///
@@ -209,6 +208,8 @@ module APIData =
         | Slot 4 -> 2
         | _ -> 1
 
-    let simplisticReachHeuristic (slots: (Slot * int) seq) =
-        [ for Slot s, count in slots -> count * (slotReachHeuristic (Slot s)) ]
+    let simplisticReachHeuristic (slots: (SetSearchLogic.Interfaces.Slot * int) list) =
+        [ for SetSearchLogic.Interfaces.Slot s, count in slots -> 
+          count * ((slotReachHeuristic (Slot s))) 
+        ]
         |> List.sum

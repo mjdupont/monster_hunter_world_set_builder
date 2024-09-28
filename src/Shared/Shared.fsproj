@@ -7,9 +7,11 @@
     <Compile Include="Helpers.fs" />
     <Compile Include="Option.fs" />
     <Compile Include="Result.fs" />
+    <Compile Include="SetSearchLogic/Interfaces.fs" />
+    <Compile Include="SetSearchLogic/GameData.fs" />
     <Compile Include="GameDataTypes.fs" />
     <Compile Include="GameDataLoader.fs" />
-    <Compile Include="GameData.fs" />
+    <Compile Include="GameData_old.fs" />
     <Compile Include="ModelData.fs" />   
     <Compile Include="DecorationAssignment.fs" /> 
     <Compile Include="SetSearchLogic.fs" /> 

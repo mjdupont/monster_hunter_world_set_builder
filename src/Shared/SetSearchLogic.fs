@@ -6,43 +6,44 @@ open ModelData
 open DecorationAssignment
 open Helpers.Prelude
 open GameData.APIData
+open SetSearchLogic.Interfaces
+open SetSearchLogic.GameData
 
 let armorByType armor =
     armor |> List.groupBy (fun a -> a.Type) |> Map.ofSeq
 
-let remainingSkillNeed skills chosenSet (requestedSkill: (Skill * int) list) =
-    let achievedSkills = ChosenSet.skillCount skills chosenSet
+let remainingSkillNeed chosenSet (requestedSkills: SkillAndLevel list) =
+    let achievedSkills = ChosenSet.skillCount chosenSet
 
     [
-        for skill, count in requestedSkill do
+        for { SkillID = skill; SkillLevel = requestedLevel } in requestedSkills do
             let achievedCount =
                 achievedSkills
-                |> List.filter (fun (aSkill, aCount) -> aSkill = skill)
+                |> List.filter (fun { SkillID = aSkill; SkillLevel = aCount } -> aSkill = skill)
                 |> List.tryExactlyOne
-                |> Option.map snd
+                |> Option.map (fun sl -> sl.SkillLevel)
                 |> Option.defaultValue 0
 
-            let remainingNeed = count - achievedCount
-            if remainingNeed > 0 then yield skill, remainingNeed else ()
+            let remainingNeed = requestedLevel - achievedCount
+            if remainingNeed > 0 then yield { SkillID = skill; SkillLevel = remainingNeed} else ()
     ]
 
-let charmSkillContribution skills remainingSkillNeed (charm, charmRank) =
-    charmRank |> skillContribution skills remainingSkillNeed
+let charmSkillContribution remainingSkillNeed charm =
+    charm |> skillContribution remainingSkillNeed
 
-let armorSkillContribution skills decorations remainingSkillNeed decorationReach (armor: Armor) =
-    let armorContribution = armor |> skillContribution skills remainingSkillNeed
-    let decoContribution = armor.Slots |> asCounts |> decorationReach
+let armorSkillContribution remainingSkillNeed decorationReach (armor: 'a when Armor<'a, 'd, 'sb>) : int =
+    let armorContribution = armor |> skillContribution remainingSkillNeed
+    let decoContribution = armor.EmptySlots |> asCounts |> decorationReach
 
     armorContribution + decoContribution
 
 
-let calculateReachOfChosenSet skills decorations chosenSet charms armorByType remainingSkillNeed =
+let calculateReachOfChosenSet decorations (chosenSet:ChosenSet<'a, 'w, 'c, 'd, 'sb>) charms armorByType remainingSkillNeed =
     let getReachOfBestPiece armorType =
-
         armorByType
         |> Map.find armorType
         |> List.tryHead
-        |> Option.map (armorSkillContribution skills decorations remainingSkillNeed (simplisticReachHeuristic))
+        |> Option.map (armorSkillContribution remainingSkillNeed (SetSearchLogic.GameData.simplisticReachHeuristic))
         |> Option.defaultValue 0
 
     let unassignedPieces = ChosenSet.getUnassignedPieces chosenSet
@@ -53,7 +54,7 @@ let calculateReachOfChosenSet skills decorations chosenSet charms armorByType re
     let charmReach =
         charms
         |> List.tryHead
-        |> Option.map (charmSkillContribution skills remainingSkillNeed)
+        |> Option.map (charmSkillContribution remainingSkillNeed)
         |> Option.defaultValue 0
 
     let assignedArmorUnassignedDecorationsReach =
@@ -100,10 +101,10 @@ let getUnassignedSlots accumulatedSet =
     unassignedSlots
 
 
-let inline itemWithEmptySlots (item: 'a when 'a: (member Slots: Slot array)) =
-    item, (item.Slots |> DecorationSlots.FromSlots)
+let inline itemWithEmptySlots (item: 'i when 'i :> IContainsSlots<'d> ) =
+    item, (item.EmptySlots |> DecorationSlots.FromSlots)
 
-let removeUnboundDecorations (fixedSet: ChosenSet) (accumulatedSet: ChosenSet) = {
+let removeUnboundDecorations (fixedSet: ChosenSet<'a, 'w, 'c, 'd, 'sb>) (accumulatedSet: ChosenSet<'a, 'w, 'c, 'd, 'sb>) = {
     accumulatedSet with
         Headgear =
             fixedSet.Headgear
@@ -135,7 +136,7 @@ let tryRemoveLastAssignment fixedSet accumulatedSet =
 
 module DecorationAllocation =
 
-    let allocateToDecorationSlot assignedDecorations (decorationSlot: DecorationSlot) =
+    let allocateToDecorationSlot assignedDecorations (decorationSlot: DecorationSlot<'d>) =
         match decorationSlot with
         | Some(Slot s, Some decoration) -> Some(assignedDecorations, Some(Slot s, Some decoration))
         | None -> Some(assignedDecorations, None)
@@ -147,7 +148,7 @@ module DecorationAllocation =
             | (_slot, decoration) :: rest, notMatching -> Some(rest @ notMatching, Some(Slot s, Some decoration))
             | [], _ -> Some(assignedDecorations, decorationSlot)
 
-    let allocateToDecorationSlots assignedDecorations (decorationSlots: DecorationSlots) = option {
+    let allocateToDecorationSlots assignedDecorations (decorationSlots: DecorationSlots<'d>) = option {
         let! remainingDecos, firstSlot = allocateToDecorationSlot assignedDecorations decorationSlots.First
         let! remainingDecos, secondSlot = allocateToDecorationSlot remainingDecos decorationSlots.Second
         let! remainingDecos, thirdSlot = allocateToDecorationSlot remainingDecos decorationSlots.Third
@@ -180,7 +181,7 @@ module DecorationAllocation =
         return remainingDecos, ChosenSet.setArmor armorType (Some(armor, assignedDecorationSlots)) chosenSet
     }
 
-    let allocateDecorations chosenSet assignedDecorations : ChosenSet option = option {
+    let allocateDecorations chosenSet assignedDecorations : ChosenSet<'a, 'w, 'c, 'd, 'sb> option = option {
         let! decorations, chosenSet = allocateToWeapon (assignedDecorations, chosenSet)
 
         let chosenPieces, emptyPieces =
@@ -202,14 +203,14 @@ open DecorationAllocation
 
 module Assignment =
 
-    let tryAssignDecorations skills remainingSkillNeed decorations chosenSet =
+    let tryAssignDecorations remainingSkillNeed decorations chosenSet =
         printfn "Trying to assign decorations..."
 
         option {
             let unassignedSlots = chosenSet |> getUnassignedSlots |> List.map fst |> asCounts
 
             let! decorationSolution =
-                findDecorationsSatisfyingSkills skills remainingSkillNeed unassignedSlots decorations
+                findDecorationsSatisfyingSkills remainingSkillNeed unassignedSlots decorations
 
             let decorationsToAllocate =
                 decorationSolution
@@ -222,7 +223,7 @@ module Assignment =
 
 
 
-    let tryAssignArmor (armorByType: Map<ArmorType, Armor List>) accumulatedSet =
+    let tryAssignArmor (armorByType: Map<ArmorType, 'a list>) accumulatedSet =
         printfn "Trying to assign armor..."
 
         let lookupNextArmorPiece armorType = option {
@@ -243,12 +244,12 @@ module Assignment =
             |> List.tryHead
 
         match maybeNextArmorPiece with
-        | Some(armorType, ((piece: Armor), rest)) ->
+        | Some(armorType, ((piece: 'a), rest)) ->
             let newArmorByType = armorByType |> Map.add armorType rest
 
             let newAccumulatedSet =
                 accumulatedSet
-                |> ChosenSet.setArmor armorType (Some(piece, piece.Slots |> DecorationSlots.FromSlots))
+                |> ChosenSet.setArmor armorType (Some(piece, piece.EmptySlots |> DecorationSlots.FromSlots))
 
             Some(newAccumulatedSet, newArmorByType)
         | None -> None
@@ -272,7 +273,7 @@ module Assignment =
 
 
 
-    let tryAssignNext skills remainingSkillNeed accumulatedSet armorByType charms decorations =
+    let tryAssignNext remainingSkillNeed accumulatedSet armorByType charms decorations =
 
         let tryAssignArmor =
             tryAssignArmor armorByType >> Option.map (fun (s, a) -> (s, a, charms))
@@ -281,7 +282,7 @@ module Assignment =
             tryAssignCharm charms >> Option.map (fun (s, c) -> (s, armorByType, c))
 
         let tryAssignDecorations =
-            tryAssignDecorations skills remainingSkillNeed decorations
+            tryAssignDecorations remainingSkillNeed decorations
             >> Option.map (fun s -> s, armorByType, charms)
 
 
@@ -294,23 +295,22 @@ module Assignment =
 /// Tries to first assign armor pieces to the set that have the armor-unique skill;
 /// Returns a list of valid sets satisfying armor-unique skills
 ///
-let tryAssignArmorUniqueSkills skills armorByType armorSets decorations chosenSet requestedSkills : ChosenSet list =
+let tryAssignArmorUniqueSkills armorByType armorSets (decorations:'d list) chosenSet requestedSkills : ChosenSet<'a, 'w, 'c, 'd, 'sb> list =
     let partitionedSkills =
         partitionSkills armorSets decorations (requestedSkills |> List.map fst)
 
     let armorUniqueSkills = partitionedSkills.ArmorUniqueSkills
 
-    let inline containsUniqueSkill uniqueSkill equipItem =
-        equipItem
-        |> containedSkills skills
-        |> List.filter (fun (s, _) -> s = uniqueSkill)
+    let inline containsUniqueSkill uniqueSkill (equipItem:'i when 'i :> IProvidesSkills) =
+        equipItem.Skills
+        |> List.filter (fun {SkillID = s} -> s = uniqueSkill)
         |> (not << List.isEmpty)
 
 
     // For each unique skill, get all the pieces that contain that skill.
     // Copy the chosenSet for each of those pieces that can be added to the chosenSet, and add that piece.
     // Repeat for the next skill, for all previously found chosenSets.
-    let addPieceWithUniqueSkill (chosenSets: ChosenSet list) (uniqueSkill: Skill) = [
+    let addPieceWithUniqueSkill (chosenSets: ChosenSet<'a, 'w, 'c, 'd, 'sb> list) (uniqueSkill: Skill) = [
         for cSet in chosenSets do
             match (ChosenSet.getUnassignedPieces cSet) with
             | [] -> () //ChosenSet has no room for more pieces
@@ -319,14 +319,14 @@ let tryAssignArmorUniqueSkills skills armorByType armorSets decorations chosenSe
                     let piecesWithUniqueSkill =
                         Map.tryFind unassignedPiece armorByType
                         |> Option.defaultValue []
-                        |> List.filter (containsUniqueSkill uniqueSkill)
+                        |> List.filter (containsUniqueSkill uniqueSkill.Id)
 
                     for pieceWithUniqueSkill in piecesWithUniqueSkill do
                         yield
                             cSet
                             |> ChosenSet.setArmor
                                 unassignedPiece
-                                (Some(pieceWithUniqueSkill, pieceWithUniqueSkill.Slots |> DecorationSlots.FromSlots))
+                                (Some(pieceWithUniqueSkill, pieceWithUniqueSkill.EmptySlots |> DecorationSlots.FromSlots))
     ]
 
     armorUniqueSkills |> List.fold addPieceWithUniqueSkill [ chosenSet ]
@@ -335,65 +335,64 @@ let tryAssignArmorUniqueSkills skills armorByType armorSets decorations chosenSe
 
 open Assignment
 
-let isCompleteSet skills requestedSkills accumulatedSet =
-    let remainingSkillNeed = remainingSkillNeed skills accumulatedSet requestedSkills
+let isCompleteSet requestedSkills accumulatedSet =
+    let remainingSkillNeed = remainingSkillNeed accumulatedSet requestedSkills
     remainingSkillNeed |> List.isEmpty
 
 
 
 let rec assignArmor3'
-    skills
-    (fixedSet: ChosenSet)
-    (decorations: (Decoration * int) list)
-    (requestedSkills: (Skill * int) list)
+    (fixedSet: ChosenSet<'a, 'w, 'c, 'd, 'sb>)
+    (decorations: ('d * int) list)
+    (requestedSkills: SkillAndLevel list)
 
-    (charms: (Charm * CharmRank) list)
-    (armorByType: Map<ArmorType, Armor List>)
-    (accumulatedSet: ChosenSet)
-    : ((ChosenSet * Map<ArmorType, Armor List> * (Charm * CharmRank) list) option) =
-    let remainingSkillNeed = remainingSkillNeed skills accumulatedSet requestedSkills
+    (charms: 'c list)
+    (armorByType: Map<ArmorType, 'a list>)
+    (accumulatedSet: ChosenSet<'a, 'w, 'c, 'd, 'sb>)
+    : ((ChosenSet<'a, 'w, 'c, 'd, 'sb> * Map<ArmorType, 'a list> * 'c list) option) =
+    let remainingSkillNeed = remainingSkillNeed accumulatedSet requestedSkills
 
     let armorByType =
         armorByType
         |> Map.map (fun key armorPieces ->
             armorPieces
             |> List.sortByDescending (
-                armorSkillContribution skills decorations remainingSkillNeed simplisticReachHeuristic
+                armorSkillContribution remainingSkillNeed simplisticReachHeuristic
             ))
 
     let charms =
         charms
-        |> List.sortByDescending (charmSkillContribution skills remainingSkillNeed)
+        |> List.sortByDescending (charmSkillContribution remainingSkillNeed)
 
     let distance = remainingSkillNeed |> distance
 
     let reach =
-        calculateReachOfChosenSet skills decorations accumulatedSet charms armorByType remainingSkillNeed
+        calculateReachOfChosenSet decorations accumulatedSet charms armorByType remainingSkillNeed
 
     //printfn "reach:%i distance:%i" reach distance
 
     let tryRewindSet () =
         match accumulatedSet |> tryRemoveLastAssignment fixedSet with
-        | Some rewoundSet -> assignArmor3' skills fixedSet decorations requestedSkills charms armorByType rewoundSet
+        | Some rewoundSet -> assignArmor3' fixedSet decorations requestedSkills charms armorByType rewoundSet
         | None -> None
 
-    match tryAssignNext skills remainingSkillNeed accumulatedSet armorByType charms decorations with
+    match tryAssignNext remainingSkillNeed accumulatedSet armorByType charms decorations with
     | _ when distance > reach -> tryRewindSet ()
     | None -> tryRewindSet ()
-    | Some(updatedSet, remainingArmor, remainingCharms) when updatedSet |> isCompleteSet skills requestedSkills ->
+    | Some(updatedSet, remainingArmor, remainingCharms) when updatedSet |> isCompleteSet requestedSkills ->
         printfn "Found set!"
         Some(updatedSet, remainingArmor, remainingCharms)
     | Some(updatedSet, remainingArmor, remainingCharms) ->
-        assignArmor3' skills fixedSet decorations requestedSkills remainingCharms remainingArmor updatedSet
+        assignArmor3' fixedSet decorations requestedSkills remainingCharms remainingArmor updatedSet
 
 let assignArmor3
     n_to_find
     skills
-    (chosenSet: ChosenSet)
-    (armorByType: Map<ArmorType, Armor List>)
-    (charms: (Charm * CharmRank) list)
-    (decorations: (Decoration * int) list)
-    (requestedSkills: (Skill * int) list)
+    (chosenSet: ChosenSet<'a, 'w, 'c, 'd, 'sb>)
+    (armorByType: Map<ArmorType, 'a List>)
+    (charms: ('c list))
+    (decorations: ('d * int) list)
+    (requestedSkills: SkillAndLevel list)
     (armorSets: ArmorSet list)
     =
 
@@ -402,12 +401,12 @@ let assignArmor3
     // Iterate on armor assignments for each of these subsets
 
     let setsWithUniqueSkills =
-        tryAssignArmorUniqueSkills skills armorByType armorSets (decorations |> List.map fst) chosenSet requestedSkills
+        tryAssignArmorUniqueSkills armorByType armorSets (decorations |> List.map fst) chosenSet requestedSkills
 
     let rec assignArmor3outer accumulatedSets fixedSet workingSet' armor' charms' =
         printfn "Accumulated sets: %i" (List.length accumulatedSets)
 
-        match assignArmor3' skills chosenSet decorations requestedSkills charms' armor' workingSet' with
+        match assignArmor3' chosenSet decorations requestedSkills charms' armor' workingSet' with
         | Some(finishedSet, remainingArmor, remainingCharms) when
             (finishedSet :: accumulatedSets) |> List.length >= n_to_find
             ->
