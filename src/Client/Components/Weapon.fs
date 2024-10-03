@@ -7,17 +7,18 @@ module Weapon =
     open APIDataTypes
     open ModelData
     open HelperFunctions
-
+    open Interfaces
 
 
     [<ReactComponent>]
     let Component
         (props:
             {|
-                Decorations: Decoration list
-                Weapons: Weapon list
-                ChosenWeapon: PropDrill<(Weapon * DecorationSlots) option>
+                Decorations: 'd list
+                Weapons: 'w list
+                ChosenWeapon: PropDrill<('w * DecorationSlots<'d, 's>) option>
             |})
+            : ReactElement when Weapon<'w, 'd>
         =
 
         let findWeaponFromId (id: string) =
@@ -26,7 +27,7 @@ module Weapon =
 
             matchingPieces |> List.tryHead
 
-        let updateWeaponIfDifferent (weapon: Weapon option) =
+        let updateWeaponIfDifferent (weapon: 'w option) =
             match weapon with
             | Some matchedWeapon when weapon = (props.ChosenWeapon.Value |> Option.map fst) -> None
             | Some matchedWeapon -> Some(matchedWeapon, DecorationSlots.FromSlots matchedWeapon.Slots)

@@ -7,24 +7,25 @@ module Armor =
     open APIDataTypes
     open ModelData
     open HelperFunctions
-
+    open Interfaces
 
 
     [<ReactComponent>]
     let Component
         (props:
             {|
-                Decorations: Decoration list
-                Armor: Armor list
-                ChosenArmor: PropDrill<(Armor * DecorationSlots) option>
+                Decorations: 'd list
+                Armor: 'a list
+                ChosenArmor: PropDrill<('a * DecorationSlots<'d, 's>) option>
             |})
+        : ReactElement when Decoration<'d, 's> and Armor<'a, 's, 'd, 'sb> and Skill<'s>
         =
 
-        let findPieceFromId (id: string) : Armor option =
+        let findPieceFromId (id: string) : 'a option =
             let matchingPieces = props.Armor |> List.filter (fun p -> p.Id |> sprintf "%i" = id)
             matchingPieces |> List.tryExactlyOne
 
-        let updateArmorIfDifferent (armor: Armor option) =
+        let updateArmorIfDifferent (armor: 'a option) =
             match armor with
             | Some matchedArmor when armor = (props.ChosenArmor.Value |> Option.map fst) -> None
             | Some matchedArmor -> Some(matchedArmor, DecorationSlots.FromSlots matchedArmor.Slots)
@@ -91,7 +92,7 @@ module Armor =
                                 (sprintf
                                     "Defense: %s "
                                     (props.ChosenArmor.Value
-                                     |> Option.map (fun (armor, decorations) -> armor.Defense.Augmented |> string)
+                                     |> Option.map (fun (armor, decorations) -> armor.Defense |> string)
                                      |> Option.defaultValue "-"))
                                 + (sprintf
                                     "F: %s "

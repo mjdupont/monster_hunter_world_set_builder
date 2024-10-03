@@ -1,5 +1,7 @@
 module HelperFunctions
 
+open Interfaces
+
 // Derived from https://zaid-ajaj.github.io/the-elmish-book/#/chapters/commands/deferred-module-utilities, with some changes/augmentations
 module Deferred =
     [<RequireQualifiedAccess>]
@@ -42,7 +44,7 @@ let inline matchesByNameOrSkillsByPredicate
 
 let inline matchesByNameOrSkills
     (queryString: string)
-    (element: ^a when ^a: (member Name: string) and ^a: (member Skills: APIDataTypes.SkillRank list))
-    : bool =
-    [ yield element.Name; for sr in element.Skills -> sr.SkillName ]
+    (element: 'a )
+    : bool when 'a :> IHasName and 'a :> SetSearchLogic.Interfaces.IProvidesSkills<'s> and Skill<'s> =
+    [ yield element.Name; for (s, level) in element.Skills -> s.Name ]
     |> List.exists (fun nameStr -> nameStr.ToLowerInvariant().StartsWith(queryString.ToLowerInvariant()))

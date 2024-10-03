@@ -9,6 +9,7 @@
     <None Include="tailwind.config.js" />
     <None Include="index.html" />
     <None Include="paket.references" />
+    <Compile Include="Interfaces.fs" />
     <Compile Include="HelperFunctions.fs" />
     <Compile Include="ModelData.fs" />
     <Compile Include="Components\UIElements\Accordion.fs" />

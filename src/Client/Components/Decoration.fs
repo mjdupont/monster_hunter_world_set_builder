@@ -6,22 +6,22 @@ module Decoration =
 
     open APIDataTypes
     open HelperFunctions
-    open SetSearchLogic.Interfaces
+    open Interfaces
 
     [<ReactComponent>]
     let Component
         (props:
             {|
                 Decorations: 'd list 
-                Slot: Slot
+                Slot: SetSearchLogic.Interfaces.Slot
                 ChosenDecoration: PropDrill<'d option>
             |})
-        : ReactElement when Decoration<'d> 
+        : ReactElement when Decoration<'d, 's> and Skill<'s>
         =
-        let (Slot slot) = props.Slot
+        let (SetSearchLogic.Interfaces.Slot slot) = props.Slot
 
-        let decorations: 'd list when Decoration<'d> =
-            props.Decorations |> List.filter (fun decoration -> decoration.Slot <= Slot slot)
+        let decorations: 'd list =
+            props.Decorations |> List.filter (fun decoration -> decoration.Slot <= SetSearchLogic.Interfaces.Slot slot)
 
         let findDecorationFromId (id: string) =
             let matchingDecoration =

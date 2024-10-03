@@ -1,6 +1,7 @@
 /// This module is intended to reflect the DataTypes used in the Monster Hunter API.
 /// Very little logic should be included here.
 module APIDataTypes
+open SetSearchLogic.Interfaces
 
 type Rank =
     | Low
@@ -104,7 +105,7 @@ type Resistances = {
     Dragon: int
 }
 
-type Slot = Slot of int
+//type Slot = Slot of int
 
 [<StructuredFormatDisplay("{Name}")>]
 type Armor = {

@@ -4,6 +4,7 @@ module GameData
 module APIData =
     open APIDataTypes
     open Helpers.Prelude
+    open SetSearchLogic.Interfaces
 
     ///
     /// Compares a SkillRank to a Skill to determine if the SkillRank is of the skill.

@@ -7,42 +7,46 @@ open GameData.APIData
 
 open SetSearchLogic.Interfaces
 
-let inline skillContribution remainingSkillNeed (skillSource: 's when SkillSource<'s>) =
-
+let inline skillContribution (remainingSkillNeed: ('s * int) list) (skillSource: 'ss) : int 
+    when Skill<'s> 
+    and 'ss :> IProvidesSkills<'s>
+    =
     let joined, _, _ =
-        List.join (fun {SkillID = requestedSkid} {SkillID = containedSkid} -> containedSkid = requestedSkid) remainingSkillNeed skillSource.Skills
+        List.join (fun (requestedSkill, _) (containedSkill, _) -> containedSkill = requestedSkill) remainingSkillNeed skillSource.Skills
 
     joined
-    |> List.map (fun ({SkillLevel = requestedLevel}, {SkillLevel = containedLevel}) -> min requestedLevel containedLevel)
+    |> List.map (fun ((_, requestedLevel), (_, containedLevel)) -> min requestedLevel containedLevel)
     |> List.sum
 
 let inline contributes
-    (remainingSkillNeed: SkillAndLevel list)
-    (skillSource: 's when SkillSource<'s>)
+    (remainingSkillNeed: ('s * int) list )
+    (skillSource: 'ss)
+    : bool when Skill<'s>
+    and 'ss :> IProvidesSkills<'s>
     =
     skillContribution remainingSkillNeed skillSource > 0
 
 
 let validDecoration
-    (remainingSkillNeed: SkillAndLevel list)
+    (remainingSkillNeed: ('s * int) list when Skill<'s>)
     maxSizeSlot
-    (decoration: 'd when Decoration<'d>)
+    (decoration: 'd when Decoration<'d, 's>)
     =
     contributes remainingSkillNeed decoration
     && decoration.Slot <= maxSizeSlot
 
-let validHardDecoration (remainingSkillNeed: SkillAndLevel list) (decoration: 'd when Decoration<'d>) =
+let validHardDecoration (remainingSkillNeed: ('s * int) list when Skill<'s>) (decoration: 'd when Decoration<'d, 's>) =
     contributes remainingSkillNeed decoration
     && (decoration |> skillContribution remainingSkillNeed) = 3
 
 
-let addSkillsToRequestedSkills (skillNeed: SkillAndLevel list) (newSkills: SkillAndLevel list) =
+let addSkillsToRequestedSkills (skillNeed: ('s * int) list when Skill<'s>) (newSkills: ('s * int) list when Skill<'s>) =
 
-    let folder skillNeed {SkillID = skillToRemove; SkillLevel = valueToRemove} =
-        [ for {SkillID = rSkid; SkillLevel = rSlvl} as requestedSkill in skillNeed do
+    let folder skillNeed (skillToRemove, valueToRemove) =
+        [ for (rSkid, rSlvl) as requestedSkill in skillNeed do
           match rSkid = skillToRemove, rSlvl - valueToRemove with 
           | true, remainingSkill when remainingSkill > 0 ->
-              yield {SkillID = rSkid; SkillLevel = (rSlvl - valueToRemove)}
+              yield (rSkid, (rSlvl - valueToRemove))
           | true, remainingSkill when remainingSkill <= 0 ->
               () // Remove skills whose value is reduced below 0
           | false, _ -> yield requestedSkill
@@ -51,19 +55,19 @@ let addSkillsToRequestedSkills (skillNeed: SkillAndLevel list) (newSkills: Skill
 
     newSkills
     |> List.fold folder skillNeed
-    |> List.filter (fun {SkillID = skill; SkillLevel = need} -> need > 0)
+    |> List.filter (fun (skill, need) -> need > 0)
 
-let addSkillsFromItem (newItem: 'd when 'd :> IProvidesSkills) (skillNeed: SkillAndLevel list) =
+let addSkillsFromItem (newItem: 'd when 'd :> IProvidesSkills<'s>) (skillNeed: ('s * int) list when Skill<'s>) =
     addSkillsToRequestedSkills skillNeed newItem.Skills
 
 
-let optimalDecorationReach (decorations: ('d * int) list when Decoration<'d>) (requestedSkills: SkillAndLevel list) decorationSlots =
+let optimalDecorationReach (decorations: ('d * int) list when Decoration<'d, 's>) (requestedSkills: ('s * int) list when Skill<'s>) decorationSlots =
     let skillreach = simplisticReachHeuristic decorationSlots
     let hardContribution = SetSearchLogic.GameData.hardSkillContribution requestedSkills decorations decorationSlots
     
     let hardRequestedSkills =
         requestedSkills
-        |> List.filter (SetSearchLogic.GameData.hardDecorationExistsForSkill (decorations |> List.map fst))
+        |> List.filter (fun (requestedSkill, _) -> (SetSearchLogic.GameData.hardDecorationExistsForSkill (decorations |> List.map fst) requestedSkill))
 
     let hardDecorations =
         decorations
@@ -71,12 +75,12 @@ let optimalDecorationReach (decorations: ('d * int) list when Decoration<'d>) (r
 
     let maxPossibleHardDecorations =
         hardRequestedSkills
-        |> List.map (fun ({SkillID = skill; SkillLevel = count} as skillAndLevel) ->
+        |> List.map (fun (skill, count) ->
             skill,
             min
                 (count / 3)
                 (hardDecorations
-                 |> List.filter (fun (deco, count) -> SetSearchLogic.GameData.containsSkill skillAndLevel deco)
+                 |> List.filter (fun (deco, count) -> SetSearchLogic.GameData.containsSkill skill deco)
                  |> List.tryExactlyOne
                  |> Option.map snd
                  |> Option.defaultValue 0))
@@ -93,10 +97,10 @@ let optimalDecorationReach (decorations: ('d * int) list when Decoration<'d>) (r
 
     decorationSlots |> List.map contributionBySize |> List.sum
 
-let distance (requestedSkills: SkillAndLevel list) =
-    requestedSkills |> List.map (fun x -> x.SkillLevel) |> List.sum
+let distance (requestedSkills: ('s * int) list when Skill<'s>) =
+    requestedSkills |> List.map (fun (skill, level) -> level) |> List.sum
 
-let reachHeuristic requestedSkills (decorations: ('d * int) list when 'd :> Decoration<'d>) slots =
+let reachHeuristic requestedSkills (decorations: ('d * int) list when 'd :> Decoration<'d, 's>) slots =
     let maxContribution =
         decorations
         |> List.map (fun (decoration, count) -> (skillContribution requestedSkills decoration))
@@ -110,12 +114,12 @@ let reachHeuristic requestedSkills (decorations: ('d * int) list when 'd :> Deco
     |> List.sum
 
 let findDecorationsSatisfyingSkills
-    (requestedSkills: SkillAndLevel list)
+    (requestedSkills: ('s * int) list when Skill<'s>)
     (decorationSlots: (Slot * int) list)
     (decorations: ('d * int) list)
-    : (Slot * 'd option) list option when Decoration<'d> and Skill<'s>=
+    : (Slot * 'd option) list option when Decoration<'d, 's> and Skill<'s>=
 
-    let rec assignDecorationsDFS decorationAssignments (unassignedSlots: (Slot * int) list) requestedSkills (decorations: ('d * int) list when Decoration<'d>) =
+    let rec assignDecorationsDFS decorationAssignments (unassignedSlots: (Slot * int) list) requestedSkills (decorations: ('d * int) list when Decoration<'d, 's>) =
         match requestedSkills, unassignedSlots, decorations with
         | [], _, _ -> Some decorationAssignments
         | _, [], _
@@ -204,7 +208,7 @@ let findDecorationsSatisfyingSkills
         slots
         (extendedSlots, reservedSlots)
         requestedSkills
-        (decorations: ('d * int) list when Decoration<'d>)
+        (decorations: ('d * int) list when Decoration<'d, 's> and Skill<'s>)
         : (Slot * 'd option) list option
         =
 

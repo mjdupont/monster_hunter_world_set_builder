@@ -10,19 +10,21 @@ open Helpers.Option
 open HelperFunctions.Deferred
 open GameData.APIData
 open Helpers.Prelude
+open SetSearchLogic.Interfaces
+open Interfaces
 
 type private StoredDecorationSlot = (Slot * int option) option
 
 module DecorationSlot =
-    let serializeDecorationSlotToStorage (decorationSlot: DecorationSlot) : StoredDecorationSlot =
+    let serializeDecorationSlotToStorage (decorationSlot: DecorationSlot<'d, 's>) : StoredDecorationSlot when Decoration<'d, 's> =
         decorationSlot
         |> Option.map (fun (slot, deco) -> (slot, deco |> Option.map (fun deco -> deco.Id)))
 
     /// Note if a decoration can't be found in the decorations list, this function defaults that decoration to None.
     let deserializeDecorationSlotFromStorage
-        (decorations: Decoration list)
+        (decorations: 'd list when Decoration<'d, 's>)
         (storedDecorationSlot: StoredDecorationSlot)
-        : DecorationSlot =
+        : DecorationSlot<'d, 's>  =
         match storedDecorationSlot with
         | Some(slot, Some deco) ->
             let matchingDecoration =
@@ -36,23 +38,23 @@ module DecorationSlot =
 
 
 
-type internal StoredDecorationSlots = {
+type StoredDecorationSlots = {
     First: StoredDecorationSlot
     Second: StoredDecorationSlot
     Third: StoredDecorationSlot
 }
 
-type DecorationSlots with
-    static member internal serializeDecorationSlotsToStorage(decorationSlots: DecorationSlots) : StoredDecorationSlots = {
+module DecorationSlots =
+    let serializeDecorationSlotsToStorage(decorationSlots: DecorationSlots<'d, 's>) : StoredDecorationSlots = {
         First = decorationSlots.First |> DecorationSlot.serializeDecorationSlotToStorage
         Second = decorationSlots.Second |> DecorationSlot.serializeDecorationSlotToStorage
         Third = decorationSlots.Third |> DecorationSlot.serializeDecorationSlotToStorage
     }
-
-    static member internal deserializeDecorationSlotsFromStorage
+    
+    let deserializeDecorationSlotsFromStorage
         decorations
         (storage: StoredDecorationSlots)
-        : DecorationSlots =
+        : DecorationSlots<'d, 's> =
         {
             First =
                 storage.First
@@ -65,11 +67,13 @@ type DecorationSlots with
                 |> (DecorationSlot.deserializeDecorationSlotFromStorage decorations)
         }
 
-
+type CustomWeapon =   
+  { Slots: Slot array 
+  }
 
 type StoredWeapon =
     | FromList of int
-    | Custom of Weapon
+    | Custom of CustomWeapon
 
 
 
@@ -82,14 +86,15 @@ type private StoredChosenSet = {
     Legs: (int * StoredDecorationSlots) option
     //Equipment_1: (Equipment * DecorationSlots)
     //Equipment_2: (Equipment * DecorationSlots)
-    Charm: (int * int) option
+    Charm: (int) option
 }
 
 
 
-type ChosenSet with
-    static member serialize(chosenSet: ChosenSet) : string =
-        let serializeCustomWeapon (slots: DecorationSlots) (weapon: Weapon) =
+module ChosenSet =
+
+    let serialize customWeaponFromSlots (chosenSet: ChosenSet<'s, 'a, 'w, 'c, 'd, 'sb>) : string when Armor<'a, 's, 'd, 'sb> and Charm<'c, 's> =
+        let serializeCustomWeapon (slots: DecorationSlots<'d, 's>) =
             // Note that Slot 0 would normally not occur in a weapon (or armor) struct
             // It is used here for custom weapons, in the case the user made a custom weapon with
             // DecorationSlots.First of None, but DecorationSlots.Second of Some Slot N. In this case,
@@ -102,14 +107,14 @@ type ChosenSet with
                 [| slots.First; slots.Second; slots.Third |]
                 |> Array.map (Option.map fst >> Option.defaultValue (Slot 0))
 
-            { weapon with Slots = newSlots }
+            { Slots = newSlots }
 
         let storedForm: StoredChosenSet = {
             Weapon =
                 match chosenSet.Weapon with
                 | Some(weapon, slots) when weapon.Id = 0 ->
                     Some(
-                        Custom(weapon |> serializeCustomWeapon slots),
+                        Custom(serializeCustomWeapon slots),
                         slots |> DecorationSlots.serializeDecorationSlotsToStorage
                     )
                 | Some weapon ->
@@ -139,18 +144,19 @@ type ChosenSet with
                     (legs.Id, decoslots |> DecorationSlots.serializeDecorationSlotsToStorage))
             //Equipment_1: (Equipment * DecorationSlots)
             //Equipment_2: (Equipment * DecorationSlots)
-            Charm = chosenSet.Charm |> Option.map (fun (charm, rank) -> (charm.Id, rank.Level))
+            Charm = chosenSet.Charm |> Option.map (fun c -> c.Id)
         }
 
         storedForm |> Thoth.Json.Encode.Auto.toString<StoredChosenSet>
 
-    static member deserialize
-        (decorations: Decoration list)
-        (weapons: Weapon list)
-        (armor: Armor list)
-        (charms: Charm list)
+    let deserialize
+        (decorations: 'd list)
+        (weapons: 'w list)
+        (customWeaponFromSlots: DecorationSlots<'d, 's> -> ('w * DecorationSlots<'d, 's>))
+        (armor: 'a list)
+        (charms: 'c list)
         (storedString: string)
-        : ChosenSet option =
+        : ChosenSet<'s, 'a, 'w, 'c, 'd, 'sb> option when Skill<'s> and Decoration<'d, 's> and Charm<'c, 's> and Armor<'a, 's, 'd, 'sb> and Weapon<'w, 'd> =
         let storedForm: Result<StoredChosenSet, string> =
             storedString |> Thoth.Json.Decode.Auto.fromString
 
@@ -161,43 +167,34 @@ type ChosenSet with
         /// -- Handled by the Option.bind, defaulting the entire expression to None if fromData is None
         /// - Storage having fewer slots than data
         /// -- Handled by the if statement
-        let inline mergeDecorationSlot (fromData) (fromStorage) : DecorationSlot =
+        let inline mergeDecorationSlot (fromData) (fromStorage) : DecorationSlot<'d, 's> =
             fromData
             |> Option.bind (fun _ -> if Option.isSome fromStorage then fromStorage else fromData)
 
 
-        let mergeDecorationSlots (fromData: DecorationSlots) (fromStorage: DecorationSlots) : DecorationSlots = {
+        let mergeDecorationSlots (fromData: DecorationSlots<'d, 's>) (fromStorage: DecorationSlots<'d, 's>) : DecorationSlots<'d, 's> = {
             First = mergeDecorationSlot fromData.First fromStorage.First
             Second = mergeDecorationSlot fromData.Second fromStorage.Second
             Third = mergeDecorationSlot fromData.Third fromStorage.Third
         }
 
-        let bindCharmRank charmLevel (charm: Charm) =
-            match charm.Ranks with
-            | ranks when ranks |> List.length > 0 ->
-                ranks
-                |> List.filter (fun rank -> rank.Level = charmLevel)
-                |> List.tryExactlyOne
-                |> Option.map (fun x -> charm, x)
-            | _ -> None
-
-        let lookupWeapon (weapon: StoredWeapon, storedSlots) =
+        let lookupWeapon customWeaponFromSlots (weapon: StoredWeapon, storedSlots) : ('w * DecorationSlots<'d, 's>) option  =
             match weapon with
             | FromList id ->
                 weapons
-                |> List.filter (fun weapon -> weapon.Id = id)
+                |> List.filter (fun (weapon: 'w) -> weapon.Id = id)
                 |> List.tryExactlyOne
-                |> Option.map (fun x ->
-                    x,
+                |> Option.map (fun (w:'w) ->
+                    w,
                     storedSlots
                     |> DecorationSlots.deserializeDecorationSlotsFromStorage decorations
-                    |> (mergeDecorationSlots (x.Slots |> DecorationSlots.FromSlots)))
+                    |> (mergeDecorationSlots (w.Slots |> DecorationSlots.FromSlots)))
             | Custom weapon ->
                 Some(
-                    weapon,
                     storedSlots
                     |> DecorationSlots.deserializeDecorationSlotsFromStorage decorations
                     |> (mergeDecorationSlots (weapon.Slots |> DecorationSlots.FromSlots))
+                    |> customWeaponFromSlots
                 )
 
         let lookupArmor (armorId, storedSlots) =
@@ -210,16 +207,15 @@ type ChosenSet with
                 |> DecorationSlots.deserializeDecorationSlotsFromStorage decorations
                 |> (mergeDecorationSlots (x.Slots |> DecorationSlots.FromSlots)))
 
-        let lookupCharm (charmId, level) =
+        let lookupCharm (charmId) =
             charms
             |> List.filter (fun charm -> charm.Id = charmId)
             |> List.tryExactlyOne
-            |> Option.bind (bindCharmRank level)
 
         storedForm
         |> Result.map (fun storedForm ->
             ({
-                Weapon = storedForm.Weapon |> Option.bind lookupWeapon
+                Weapon = storedForm.Weapon |> Option.bind (lookupWeapon customWeaponFromSlots)
                 Headgear = storedForm.Headgear |> Option.bind lookupArmor
                 Chest = storedForm.Chest |> Option.bind lookupArmor
                 Gloves = storedForm.Gloves |> Option.bind lookupArmor
@@ -227,26 +223,27 @@ type ChosenSet with
                 Legs = storedForm.Legs |> Option.bind lookupArmor
                 Charm = storedForm.Charm |> Option.bind lookupCharm
             }
-            : ChosenSet))
+            : ChosenSet<'s, 'a, 'w, 'c, 'd, 'sb>))
         |> (function
         | Ok s -> Some s
         | Error _ -> None)
 
-    static member storeToWebStorage(chosenSet: ChosenSet) : Async<unit> = async {
-        let serialized = chosenSet |> ChosenSet.serialize
+    let storeToWebStorage(customWeaponFromSlots, chosenSet: ChosenSet<'s, 'a, 'w, 'c, 'd, 'sb>) : Async<unit> = async {
+        let serialized = chosenSet |> serialize customWeaponFromSlots
         Browser.WebStorage.sessionStorage.setItem ("chosenSet", serialized)
     }
 
-    static member readFromWebStorage
-        (decorations: Decoration list)
-        (weapons: Weapon list)
-        (armor: Armor list)
-        (charms: Charm list)
-        : Async<ChosenSet option> =
+    let readFromWebStorage
+        (decorations: 'd list)
+        (weapons: 'w list)
+        (customWeaponFromSlots: DecorationSlots<'d, 's> -> ('w * DecorationSlots<'d, 's>))
+        (armor: 'a list)
+        (charms: 'c list)
+        : Async<ChosenSet<'s, 'a, 'w, 'c, 'd, 'sb> option> =
         async {
             return
                 Browser.WebStorage.sessionStorage.getItem ("chosenSet")
-                |> ChosenSet.deserialize decorations weapons armor charms
+                |> deserialize decorations weapons customWeaponFromSlots armor charms
         }
 
 

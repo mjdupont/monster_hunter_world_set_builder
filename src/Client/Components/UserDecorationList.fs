@@ -4,15 +4,15 @@ module UserDecorationList =
     open Feliz
     open APIDataTypes
     open HelperFunctions
-
+    open Interfaces
 
     [<ReactComponent>]
     let Component
         (props:
             {|
-                Decorations: ((Decoration * int) * int) list
-                SetDecorations: ((Decoration * int) list -> unit)
-            |})
+                Decorations: (('d * int) * int) list
+                SetDecorations: (('d * int) list -> unit)
+            |}) : ReactElement when Decoration<'d, 's>
         =
         let searchWord, setSearchWord = React.useState ""
 

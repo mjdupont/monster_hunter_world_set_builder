@@ -25,9 +25,8 @@ open Helpers
 
 module Armor =
     open Armor
+    open SetSearchLogic.Interfaces
     type ArmorFromFile = ExcelFile<"../../resources/datamined_data_clean/armor.xlsx">
-
-    let Slot = APIDataTypes.Slot
 
     // Note that some fields, like Name, don't really have "invalid" values
     // Other fields should only contain a specific set of strings, which are being mapped to a discriminated union, but technically could fail and are handled here
@@ -125,7 +124,7 @@ module Armor =
         let! s2 = validate dataRow.``Slot 2 Size`` 2
         let! s3 = validate dataRow.``Slot 3 Size`` 3
 
-        let slots = [ s1; s2; s3 ] |> List.filter (fun (APIDataTypes.Slot s) -> s > 0)
+        let slots = [ s1; s2; s3 ] |> List.filter (fun (Slot s) -> s > 0)
         let count = slots |> List.length
         let expectedCount = (int) dataRow.``Slot Count``
 
@@ -210,7 +209,6 @@ module Armor =
 module Decoration =
     open Decoration
 
-    let Slot = APIDataTypes.Slot
 
     type DecorationFromFile = ExcelFile<"../../resources/datamined_data_clean/decorations.xls">
 

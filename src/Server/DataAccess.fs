@@ -229,7 +229,7 @@ module InferredTypes =
                     |> SkillRank.Api.Parse
                     |> (SkillRank.toReal skillNames))
                 |> List.ofArray
-            Slots = armor.Slots |> Array.map (fun slot -> Slot slot.Rank)
+            Slots = armor.Slots |> Array.map (fun slot -> SetSearchLogic.Interfaces.Slot slot.Rank)
             Slug = armor.Id.ToString()
             Type = armor.Type |> (|ArmorType|_|) |> Option.defaultValue APIDataTypes.ArmorType.Legs //TODO Handle this default better
         }
@@ -399,7 +399,7 @@ module InferredTypes =
             //; Type: WeaponType
             Rarity = weapon.Rarity
             Attack = weapon.Attack.Display
-            Slots = weapon.Slots |> Array.map (fun s -> Slot s.Rank)
+            Slots = weapon.Slots |> Array.map (fun s -> SetSearchLogic.Interfaces.Slot s.Rank)
         }
 
         let loadWeapons: Async<Weapon list> = async {

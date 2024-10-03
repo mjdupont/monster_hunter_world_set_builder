@@ -5,6 +5,7 @@ module ArmorSetSkillsDisplay =
     open ModelData
     open APIDataTypes
     open GameData.APIData
+    open Interfaces
 
 
     [<ReactComponent>]
@@ -12,8 +13,9 @@ module ArmorSetSkillsDisplay =
         (props:
             {|
                 GameData: MHWData
-                ChosenSet: ChosenSet
+                ChosenSet: ChosenSet<'s, 'a, 'w, 'c, 'd, 'sb>
             |})
+            : ReactElement when Skill<'s> and SetBonus<'sb>
         =
 
         let armorSetBonuses =
@@ -22,10 +24,10 @@ module ArmorSetSkillsDisplay =
         let totalSkills = (props.ChosenSet |> ChosenSet.allSkillRanks |> accumulateSkills)
 
         let totalSkillsElement = [
-            for skillRank in totalSkills do
+            for achievedSkill, achievedLevel in totalSkills do
                 let skillFromData =
                     props.GameData.Skills
-                    |> List.filter (fun skill -> skillRankOfSkill skill skillRank)
+                    |> List.filter (fun skill -> skill.Id = achievedSkill.SkillId)
                     |> List.tryExactlyOne
 
                 let skillColor =
@@ -38,9 +40,9 @@ module ArmorSetSkillsDisplay =
                             |> List.head
                             |> (fun sr -> sr.Level)
 
-                        match skillRank with
-                        | s when s.Level = maxLevel -> "green"
-                        | s when s.Level > maxLevel -> "red"
+                        match achievedLevel with
+                        | s when s = maxLevel -> "green"
+                        | s when s > maxLevel -> "red"
                         | _ -> "black"
 
                 yield
@@ -49,7 +51,7 @@ module ArmorSetSkillsDisplay =
                         prop.children [
                             Html.h3 [
                                 prop.style [ style.color skillColor ]
-                                prop.text (sprintf "%s: %i" skillRank.SkillName skillRank.Level)
+                                prop.text (sprintf "%s: %i" achievedSkill.Name achievedLevel)
                             ]
                         ]
                     ]

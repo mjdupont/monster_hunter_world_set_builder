@@ -6,18 +6,19 @@ module DecorationSlots =
     open APIDataTypes
     open ModelData
     open HelperFunctions
-    open SetSearchLogic.Interfaces
+    open Interfaces
 
     [<ReactComponent>]
     let Component
         (props:
             {|
-                Decorations: Decoration list
-                ChosenDecoSlots: PropDrill<DecorationSlots<'d>>
+                Decorations: 'd list
+                ChosenDecoSlots: PropDrill<DecorationSlots<'d, 's>>  
             |})
+            : ReactElement when Decoration<'d, 's> and Skill<'s>
         =
 
-        let updateDecoration (newDecoration: 'd option when Decoration<'d>) (decorationSlot: DecorationSlot<'d>) : DecorationSlot<'d> =
+        let updateDecoration (newDecoration: 'd option when Decoration<'d, 's>) (decorationSlot: DecorationSlot<'d, 's>) : DecorationSlot<'d, 's> =
             decorationSlot
             |> Option.map (fun (slot, oldDecoration) ->
                 match oldDecoration, newDecoration with
@@ -25,7 +26,7 @@ module DecorationSlots =
                 | _, Some newDeco when newDeco.Slot <= slot -> (slot, newDecoration) // Only update to a new decoration if it can fit in the slot
                 | _ -> (slot, oldDecoration))
 
-        let updateDecorationSlot position (newDecoration: Decoration<'d> option) =
+        let updateDecorationSlot position (newDecoration: Decoration<'d, 's> option) =
             let updatedDecorationSlots =
                 match position with
                 | First -> {

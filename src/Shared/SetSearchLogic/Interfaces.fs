@@ -5,42 +5,47 @@ module Interfaces =
 
     type ISkill = 
         abstract SkillId : int
+    
+    ///<summary> For the purpose of the Set Search logic, a skill only needs to provide a unique identifier.</summary>
+    type Skill<'s when 's :> ISkill and 's : equality> = 's
 
-    type SkillAndLevel = 
-        { SkillID : int; 
-          SkillLevel: int
-        }
-        interface ISkill with
-            member this.SkillId = this.SkillID
+    type IProvidesSkills<'s> when Skill<'s> = 
+        abstract Skills : ('s * int) list
 
-    type ArmorSetBonusRank = 
-        { RequiredPieces: int
-          SkillId : int
-        }
+    type IHasSlots<'d> =
+        abstract Slots : Slot list
 
-    type IProvidesSkills = 
-        abstract Skills : SkillAndLevel list
+    type IHasActiveSlots<'d> = 
+        abstract ActiveSlots : (Slot * 'd option) list
+        abstract SetActiveSlots : (Slot * 'd option) list -> IHasActiveSlots<'d>
 
-    type IContainsSlots<'d> =
-        abstract Slots : (Slot * 'd option) list
-        abstract EmptySlots : Slot list
+    // type ISetBonus<'s> =
+    //     abstract SetBonus : 's
+    //     abstract RequiredPieces: int
 
-    type ISetBonus = 
-        abstract Ranks : ArmorSetBonusRank list
-    type SetBonus<'sb> when 'sb : equality and 'sb :> ISetBonus = 'sb
+    // type SetBonus<'sb, 's> when 'sb : equality and 'sb :> ISetBonus<'s> = 'sb
 
-    type IContainsSetBonus<'sb> when SetBonus<'sb>= 
-        abstract SetBonus: 'sb option 
+    // type IContainsSetBonus<'aset, 's> when SetBonus<', 's>= 
+    //     abstract SetBonus: 's option
+    //     abstract Set: 'aset 
 
-    type IDecoration =
-        inherit IProvidesSkills
+    type IDecoration<'s> when Skill<'s> =
+        inherit IProvidesSkills<'s>
         abstract Slot : Slot
 
-    type Charm<'c when 'c :> IProvidesSkills> = 'c
+    type Charm<'c, 's when Skill<'s> and 'c :> IProvidesSkills<'s>> = 'c
+    
+    type Decoration<'d, 's 
+        when Skill<'s>
+        and 'd :> IDecoration<'s>
+        > = 'd
 
-    type Skill<'s when 's :> ISkill> = 's
-    type SkillSource<'s when 's :> IProvidesSkills> = 's
-    type Decoration<'d when 'd :> IDecoration> = 'd
-
-    type Armor<'a, 'd, 'sb when 'a :> IProvidesSkills and 'a :> IContainsSlots<'d> and SetBonus<'sb> and 'a :> IContainsSetBonus<'sb>> = 'a
-
+    type Armor<'a, 's, 'd
+        when Skill<'s> 
+        and Decoration<'d, 's> 
+        and 'a :> IProvidesSkills<'s> 
+        and 'a :> IHasSlots<'d> 
+        // and SetBonus<'sb, 's> 
+        // and 'a :> IContainsSetBonus<'sb, 's> 
+        // and SetBonus<'sb, 's>
+        > = 'a

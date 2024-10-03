@@ -11,8 +11,8 @@ module WeaponBuilder =
     let Component
         (props:
             {|
-                Decorations: Decoration list
-                ChosenWeapon: PropDrill<(Weapon * DecorationSlots) option>
+                Decorations: 'd list
+                ChosenWeapon: PropDrill<('w * DecorationSlots<'d, 's>) option>
             |})
         =
         let updateDecorationSlots decorationSlots =
@@ -36,7 +36,7 @@ module WeaponBuilder =
                                 ChosenDecoSlot = {
                                     Value = slots.First
                                     Update =
-                                        (fun (decoSlot: DecorationSlot) ->
+                                        (fun (decoSlot: DecorationSlot<'d, 's>) ->
                                             Some(weapon, { slots with First = decoSlot }) |> props.ChosenWeapon.Update)
                                 }
                             |}
@@ -45,7 +45,7 @@ module WeaponBuilder =
                                 ChosenDecoSlot = {
                                     Value = slots.Second
                                     Update =
-                                        (fun (decoSlot: DecorationSlot) ->
+                                        (fun (decoSlot: DecorationSlot<'d, 's>) ->
                                             Some(weapon, { slots with Second = decoSlot }) |> props.ChosenWeapon.Update)
                                 }
                             |}
@@ -54,7 +54,7 @@ module WeaponBuilder =
                                 ChosenDecoSlot = {
                                     Value = slots.Third
                                     Update =
-                                        (fun (decoSlot: DecorationSlot) ->
+                                        (fun (decoSlot: DecorationSlot<'d, 's>) ->
                                             Some(weapon, { slots with Third = decoSlot }) |> props.ChosenWeapon.Update)
                                 }
                             |}

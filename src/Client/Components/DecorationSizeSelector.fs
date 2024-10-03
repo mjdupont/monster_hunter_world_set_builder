@@ -14,7 +14,7 @@ module DecorationSizeSelector =
         (props:
             {|
                 Position: int
-                ChosenDecoSlot: PropDrill<DecorationSlot>
+                ChosenDecoSlot: PropDrill<DecorationSlot<'d, 's>>
             |})
         =
         let noDecorationElement () =
@@ -39,7 +39,7 @@ module DecorationSizeSelector =
         let decorationElement size =
             let isChecked =
                 match props.ChosenDecoSlot.Value with
-                | Some((Slot slot), deco) when slot = size -> true
+                | Some((SetSearchLogic.Interfaces.Slot slot), deco) when slot = size -> true
                 | empty_decoration_level -> false
 
             Html.label [
@@ -53,7 +53,7 @@ module DecorationSizeSelector =
                     ]
                     Html.img [
                         prop.src (sprintf "images\\empty_decoration_level_%i.png" size)
-                        prop.onClick (fun _me -> (Some(Slot size, None)) |> props.ChosenDecoSlot.Update)
+                        prop.onClick (fun _me -> (Some(SetSearchLogic.Interfaces.Slot size, None)) |> props.ChosenDecoSlot.Update)
                     ]
                 ]
             ]

@@ -4,15 +4,16 @@ module UserArmorList =
     open Feliz
     open APIDataTypes
     open HelperFunctions
-
+    open Interfaces
 
     [<ReactComponent>]
     let Component
         (props:
             {|
-                Armor: (Armor * bool) list
-                SetArmor: ((Armor * bool) list -> unit)
+                Armor: ('a * bool) list
+                SetArmor: (('a * bool) list -> unit)
             |})
+            : ReactElement when Armor<'a, 's, 'd, 'sb>
         =
         let searchWord, setSearchWord = React.useState ""
 
