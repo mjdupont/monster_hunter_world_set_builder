@@ -93,7 +93,10 @@ type private StoredChosenSet = {
 
 module ChosenSet =
 
-    let serialize customWeaponFromSlots (chosenSet: ChosenSet<'s, 'a, 'w, 'c, 'd, 'sb>) : string when Armor<'a, 's, 'd, 'sb> and Charm<'c, 's> =
+    let serialize (chosenSet: ChosenSet<'s, 'a, 'w, 'c, 'd, 'set>) : string 
+        when Armor<'a, 's, 'd, 'set>
+        and Weapon<'w, 'd> 
+        and Charm<'c, 's> =
         let serializeCustomWeapon (slots: DecorationSlots<'d, 's>) =
             // Note that Slot 0 would normally not occur in a weapon (or armor) struct
             // It is used here for custom weapons, in the case the user made a custom weapon with
@@ -156,7 +159,7 @@ module ChosenSet =
         (armor: 'a list)
         (charms: 'c list)
         (storedString: string)
-        : ChosenSet<'s, 'a, 'w, 'c, 'd, 'sb> option when Skill<'s> and Decoration<'d, 's> and Charm<'c, 's> and Armor<'a, 's, 'd, 'sb> and Weapon<'w, 'd> =
+        : ChosenSet<'s, 'a, 'w, 'c, 'd, 'set> option when Skill<'s> and Decoration<'d, 's> and Charm<'c, 's> and Armor<'a, 's, 'd, 'set> and Weapon<'w, 'd> =
         let storedForm: Result<StoredChosenSet, string> =
             storedString |> Thoth.Json.Decode.Auto.fromString
 
@@ -223,13 +226,13 @@ module ChosenSet =
                 Legs = storedForm.Legs |> Option.bind lookupArmor
                 Charm = storedForm.Charm |> Option.bind lookupCharm
             }
-            : ChosenSet<'s, 'a, 'w, 'c, 'd, 'sb>))
+            : ChosenSet<'s, 'a, 'w, 'c, 'd, 'set>))
         |> (function
         | Ok s -> Some s
         | Error _ -> None)
 
-    let storeToWebStorage(customWeaponFromSlots, chosenSet: ChosenSet<'s, 'a, 'w, 'c, 'd, 'sb>) : Async<unit> = async {
-        let serialized = chosenSet |> serialize customWeaponFromSlots
+    let storeToWebStorage(chosenSet: ChosenSet<'s, 'a, 'w, 'c, 'd, 'set>) : Async<unit> = async {
+        let serialized = chosenSet |> serialize
         Browser.WebStorage.sessionStorage.setItem ("chosenSet", serialized)
     }
 
@@ -239,7 +242,7 @@ module ChosenSet =
         (customWeaponFromSlots: DecorationSlots<'d, 's> -> ('w * DecorationSlots<'d, 's>))
         (armor: 'a list)
         (charms: 'c list)
-        : Async<ChosenSet<'s, 'a, 'w, 'c, 'd, 'sb> option> =
+        : Async<ChosenSet<'s, 'a, 'w, 'c, 'd, 'set> option> =
         async {
             return
                 Browser.WebStorage.sessionStorage.getItem ("chosenSet")

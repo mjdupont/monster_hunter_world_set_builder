@@ -4,13 +4,6 @@ open APIDataTypes
 open GameData.APIData
 open SetSearchLogic.Interfaces
 
-type TempSkill = {SkillID : int}
-  with
-    interface ISkill
-      with member this.SkillId = this.SkillID
-let tempSkill i = {SkillID = i}
-let skillRankAsSkillAndLevel (sr:SkillRank) = (tempSkill sr.Skill, sr.Level)
-
 type DecorationSlot<'d, 's> when Decoration<'d, 's> = (Slot * 'd option) option 
 
 module DecorationSlot =
@@ -99,11 +92,11 @@ type DecorationSlots<'d, 's> when Decoration<'d, 's> and Skill<'s> = {
     
 
 type Armor with
-    static member skillsFromArmor((armor: Armor), decorationSlots) =
-        [ decorationSlots |> DecorationSlots.skillsFromDecorationSlots; armor.Skills |> List.map skillRankAsSkillAndLevel ]
+    static member skillsFromArmor((armor: 'a when Armor<'a, 's, 'd, 'set>), decorationSlots) =
+        [ decorationSlots |> DecorationSlots.skillsFromDecorationSlots; armor.Skills ]
         |> List.concat
 
-type ChosenSet<'s, 'a, 'w, 'c, 'd, 'sb> when Armor<'a, 's, 'd, 'sb> and Charm<'c, 's> and Decoration<'d, 's> and Skill<'s> = {
+type ChosenSet<'s, 'a, 'w, 'c, 'd, 'set> when Armor<'a, 's, 'd, 'set> and Charm<'c, 's> and Decoration<'d, 's> and Skill<'s> and ArmorSet<'set>= {
     Weapon: ('w * DecorationSlots<'d, 's>) option
     Headgear: ('a * DecorationSlots<'d, 's>) option
     Chest: ('a * DecorationSlots<'d, 's>) option
@@ -115,7 +108,7 @@ type ChosenSet<'s, 'a, 'w, 'c, 'd, 'sb> when Armor<'a, 's, 'd, 'sb> and Charm<'c
     Charm: 'c option 
 } with
 
-    static member Default : ChosenSet<'s, 'a, 'w, 'c, 'd, 'sb> = {
+    static member Default : ChosenSet<'s, 'a, 'w, 'c, 'd, 'set> = {
         Weapon = None
         Headgear = None
         Chest = None
@@ -125,7 +118,7 @@ type ChosenSet<'s, 'a, 'w, 'c, 'd, 'sb> when Armor<'a, 's, 'd, 'sb> and Charm<'c
         Charm = None
     }
 
-    static member setArmor armorType armor (chosenSet: ChosenSet<'s, 'a, 'w, 'c, 'd, 'sb>) =
+    static member setArmor armorType armor (chosenSet: ChosenSet<'s, 'a, 'w, 'c, 'd, 'set>) =
         match armorType with
         | ArmorType.Headgear -> { chosenSet with Headgear = armor }
         | ArmorType.Gloves -> { chosenSet with Gloves = armor }
@@ -133,7 +126,7 @@ type ChosenSet<'s, 'a, 'w, 'c, 'd, 'sb> when Armor<'a, 's, 'd, 'sb> and Charm<'c
         | ArmorType.Waist -> { chosenSet with Waist = armor }
         | ArmorType.Legs -> { chosenSet with Legs = armor }
 
-    static member tryGetPiece(armorType, (chosenSet: ChosenSet<'s, 'a, 'w, 'c, 'd, 'sb>)) =
+    static member tryGetPiece(armorType, (chosenSet: ChosenSet<'s, 'a, 'w, 'c, 'd, 'set>)) =
         match armorType with
         | Headgear -> chosenSet.Headgear
         | Chest -> chosenSet.Chest
@@ -141,14 +134,14 @@ type ChosenSet<'s, 'a, 'w, 'c, 'd, 'sb> when Armor<'a, 's, 'd, 'sb> and Charm<'c
         | Waist -> chosenSet.Waist
         | Legs -> chosenSet.Legs
 
-    static member getUnassignedPieces (chosenSet: ChosenSet<'s, 'a, 'w, 'c, 'd, 'sb>) = [
+    static member getUnassignedPieces (chosenSet: ChosenSet<'s, 'a, 'w, 'c, 'd, 'set>) = [
         for armorType in ArmorType.allTypes do
             match ChosenSet.tryGetPiece (armorType, chosenSet) with
             | Some piece -> ()
             | _ -> armorType
     ]
 
-    static member getAssignedPieces (chosenSet: ChosenSet<'s, 'a, 'w, 'c, 'd, 'sb>) = [
+    static member getAssignedPieces (chosenSet: ChosenSet<'s, 'a, 'w, 'c, 'd, 'set>) = [
         for armorType in ArmorType.allTypes do
             match ChosenSet.tryGetPiece (armorType, chosenSet) with
             | Some piece -> yield piece
@@ -157,16 +150,26 @@ type ChosenSet<'s, 'a, 'w, 'c, 'd, 'sb> when Armor<'a, 's, 'd, 'sb> and Charm<'c
 
     member this.tryGetPiece armorType = ChosenSet.tryGetPiece (armorType, this)
 
-    static member armorSetBonuses (armorSets: ArmorSet seq) (chosenSet: ChosenSet<'s, 'a, 'w, 'c, 'd, 'sb>) =
+    static member armorSetBonuses (setBonuses: 'sb list) (chosenSet: ChosenSet<'s, 'a, 'w, 'c, 'd, 'set>) 
+        : _ 
+            when SetBonus<'sb, 'set, 's, 'sbr> 
+            and ArmorSet<'set> 
+            and Skill<'s> 
+            and SetBonusRank<'sbr, 's> =
 
-        let tryFindMatchingArmorSet setId =
-            armorSets |> Seq.filter (fun aset -> aset.Id = setId) |> Seq.tryExactlyOne
+        let setBonusRanks (setBonuses:'sb list) set = 
+            setBonuses 
+            |> List.filter (fun sb -> sb.Set = set)
+            |> List.tryExactlyOne
 
-        let tryFindMatchingArmorSetBonus setId =
-            let matchingArmorSet = tryFindMatchingArmorSet setId
-            matchingArmorSet |> Option.bind (fun matchingArmorSet -> matchingArmorSet.Bonus)
+        let achievedRanks setBonuses (set, nPieces) =
+          setBonusRanks setBonuses set
+          |> Option.map (fun (sb:'sb) -> 
+              sb.Ranks 
+              |> List.filter (fun sbr -> sbr.RequiredPieces <= nPieces) 
+              |> List.map (fun sbr -> sbr.Skill, sbr.RequiredPieces))
 
-        let (armorSetBonuses: 'sb list) =
+        let (armorSets: ('set*int) list) =
             [
                 chosenSet.Headgear
                 chosenSet.Chest
@@ -176,20 +179,17 @@ type ChosenSet<'s, 'a, 'w, 'c, 'd, 'sb> when Armor<'a, 's, 'd, 'sb> and Charm<'c
             ]
             |> List.choose id
             |> List.map fst
-            |> List.choose (fun armor -> armor.SetBonus)
+            |> List.map (fun armor -> armor.Set)
+            |> List.countBy id
 
         let armorSetRanks =
-            armorSetBonuses
-            |> List.groupBy id
-            |> List.map (fun (a, b) -> a, b |> List.length)
-            |> List.map (fun ((bonus:'sb), count) -> [
-                for rank in bonus.Ranks |> List.filter (fun {RequiredPieces = requiredPieces} -> requiredPieces <= count) -> bonus, rank
-            ])
+            armorSets
+            |> List.choose (achievedRanks setBonuses) 
             |> List.concat
 
         armorSetRanks
 
-    static member allSkillRanks(chosenSet: ChosenSet<'s, 'a, 'w, 'c, 'd, 'sb>) =
+    static member allSkillRanks(chosenSet: ChosenSet<'s, 'a, 'w, 'c, 'd, 'set>) =
         let skillsFromArmor : ('s * int) list =
             [
                 chosenSet.Headgear
@@ -223,8 +223,8 @@ let accumulateSkills (skills: ('s * int) list) =
         items
         |> List.reduce (fun (skill, accumulatedLevels) (skill', newLevels) -> (skill, accumulatedLevels + newLevels)))
 
-type ChosenSet<'s, 'a, 'w, 'c, 'd, 'sb> when Armor<'a, 's, 'd, 'sb> and Charm<'c, 's> and Decoration<'d, 's> and Skill<'s> with
-    static member skillCount (chosenSet: ChosenSet<'s, 'a, 'w, 'c, 'd, 'sb>) =
+type ChosenSet<'s, 'a, 'w, 'c, 'd, 'set> when Armor<'a, 's, 'd, 'set> and Charm<'c, 's> and Decoration<'d, 's> and Skill<'s> with
+    static member skillCount (chosenSet: ChosenSet<'s, 'a, 'w, 'c, 'd, 'set>) =
         chosenSet
         |> ChosenSet.allSkillRanks
         |> accumulateSkills

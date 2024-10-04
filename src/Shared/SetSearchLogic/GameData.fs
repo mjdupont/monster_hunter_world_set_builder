@@ -70,28 +70,27 @@ module GameData =
     ///
     /// Categorizes a skill as either an armor set skill, an armor-unique skill, or a decoration skill
     ///
-    let categorizeSkill (armorSets: 'aset list when 'aset :> IContainsSetBonus<'sb, 's>) (decorations: 'd list when Decoration<'d, 's>) (skill: 's when Skill<'s>) =
-        let skillId = skill.SkillId
-        let armorSetBonusSkillIds =
-            armorSets
-            |> List.choose (fun aSet -> aSet.SetBonus)
-            |> List.map (fun asb -> asb.Ranks)
+    let categorizeSkill (setBonuses: 'sb list when SetBonus<'set, 'sb, 's, 'sbr>) (decorations: 'd list when Decoration<'d, 's>) (skill: 's when Skill<'s>) =
+
+        let armorSetSkills =
+            setBonuses
+            |> List.map (fun sb -> (sb:>ISetBonus<'set, 's, 'sbr>).Ranks)
             |> List.concat
-            |> List.map (fun asbr -> asbr.Skill.SkillId)
+            |> List.map (fun asbr -> asbr.Skill)
             |> List.distinct
 
-        let decorationSkillBonusIds =
+        let skillsInDecorations =
             decorations
             |> List.map (fun deco -> deco.Skills)
             |> List.concat
-            |> List.map (fst >> (fun s -> s.SkillId))
+            |> List.map fst
             |> List.distinct
 
         let isArmorSetSkill =
-            armorSetBonusSkillIds |> List.exists (fun asbsi -> asbsi = skillId)
+            armorSetSkills |> List.exists (fun armorSetSkill -> armorSetSkill = skill)
 
         let isDecorationSkill =
-            decorationSkillBonusIds |> List.exists (fun dsbi -> dsbi = skillId)
+            skillsInDecorations |> List.exists (fun skillInDecoration -> skillInDecoration = skill)
 
         match isArmorSetSkill, isDecorationSkill with
         | true, true -> ArmorSetAndDecorationSkill
@@ -99,7 +98,7 @@ module GameData =
         | false, true -> DecorationSkill
         | false, false -> ArmorUniqueSkill
 
-    type PartitionedSkills<'s> when 's :> ISkill = {
+    type PartitionedSkills<'s> when Skill<'s> = {
         ArmorSetSkills: 's list
         DecorationSkills: 's list
         ArmorUniqueSkills: 's list
@@ -109,10 +108,9 @@ module GameData =
     ///
     /// Splits skills into ArmorSet skills, Armor-Unique skills, Decoration skills, ArmorSet/Decoration Skills (Mind's Eye/Ballistics, Guard Up)
     ///
-    let partitionSkills (armorSets: 'aset list when ArmorSet<'aset>) decorations (skills: 's list when Skill<'s>) =
+    let partitionSkills (armorSetBonuses: 'sb list when SetBonus<'sb, 'set, 's, 'sbr>) (decorations: 'd list when Decoration<'d, 's>) (skills: 's list when Skill<'s>) =
         let mapped =
-            skills |> List.groupBy (categorizeSkill armorSets decorations) |> Map.ofList
-
+            skills |> List.groupBy (categorizeSkill armorSetBonuses decorations) |> Map.ofList
         {
             ArmorSetSkills = mapped |> Map.tryFind ArmorSetSkill |> Option.defaultValue []
             DecorationSkills = mapped |> Map.tryFind DecorationSkill |> Option.defaultValue []

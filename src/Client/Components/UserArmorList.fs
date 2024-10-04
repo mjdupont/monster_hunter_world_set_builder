@@ -13,7 +13,7 @@ module UserArmorList =
                 Armor: ('a * bool) list
                 SetArmor: (('a * bool) list -> unit)
             |})
-            : ReactElement when Armor<'a, 's, 'd, 'sb>
+            : ReactElement when Armor<'a, 's, 'd, 'set>
         =
         let searchWord, setSearchWord = React.useState ""
 

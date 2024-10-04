@@ -21,9 +21,51 @@ type IHasAttack =
 type IHasResistances = 
     abstract member Resistances : APIDataTypes.MHWGameData.Armor.Resistances
 
-type Decoration<'d, 's when 'd :> IHasName and 'd :> IHasID and 'd :> IHasIconURI and SetSearchLogic.Interfaces.Decoration<'d, 's>> = 'd
-type Skill<'s when 's :> IHasName and SetSearchLogic.Interfaces.Skill<'s>> = 's
-type Armor<'a, 's, 'd, 'sb when SetSearchLogic.Interfaces.Armor<'a, 's, 'd, 'sb> and 'a :> IHasName and 'a :> IHasID and 'a :> IHasRank and 'a :> IHasDefense and 'a :> IHasResistances> = 'a
-type Charm<'c, 's when 'c :> IHasID and 'c :> IHasRank and SetSearchLogic.Interfaces.Charm<'c, 's>> = 'c
-type Weapon<'w, 'd when 'w :> IHasID and 'w :> SetSearchLogic.Interfaces.IHasSlots<'d> and 'w :> SetSearchLogic.Interfaces.IHasActiveSlots<'d> and 'w :> IHasName and 'w :> IHasAttack > = 'w
-type SetBonus<'sb when SetSearchLogic.Interfaces.SetBonus<'sb> and 'sb :> IHasName> = 'sb
+type Decoration<'d, 's 
+    when SetSearchLogic.Interfaces.Decoration<'d, 's> 
+    and 'd :> IHasID 
+    and 'd :> IHasIconURI 
+    and 'd :> IHasName
+    > = 'd
+type Skill<'s 
+    when SetSearchLogic.Interfaces.Skill<'s> 
+    and 's :> IHasName
+    and 's :> IHasRank
+    > = 's
+type Armor<'a, 's, 'd, 'set 
+    when SetSearchLogic.Interfaces.Armor<'a, 's, 'd, 'set> 
+    and 'a :> IHasName 
+    and 'a :> IHasID 
+    and 'a :> IHasRank 
+    and 'a :> IHasDefense 
+    and 'a :> IHasResistances
+    > = 'a
+type Charm<'c, 's 
+    when SetSearchLogic.Interfaces.Charm<'c, 's> 
+    and 'c :> IHasRank 
+    and 'c :> IHasID
+    > = 'c
+type Weapon<'w, 'd 
+    when 'w :> IHasID 
+    and 'w :> SetSearchLogic.Interfaces.IHasSlots<'d> 
+    and 'w :> SetSearchLogic.Interfaces.IHasActiveSlots<'d> 
+    and 'w :> IHasName 
+    and 'w :> IHasAttack 
+    > = 'w
+type SetBonus<'sb, 'set, 's, 'sbr 
+    when SetSearchLogic.Interfaces.SetBonus<'sb, 'set, 's, 'sbr> 
+    and 'sb :> IHasName
+    > = 'sb
+
+type ArmorSet<'set
+    when SetSearchLogic.Interfaces.ArmorSet<'set>
+    > = 'set
+
+type ISkillData<'s> when Skill<'s> = 
+    abstract Skill : 's
+    abstract MaxRank : int
+
+type SkillData<'sd, 's
+    when Skill<'s>
+    and 'sd :> ISkillData<'s>
+    > = 'sd

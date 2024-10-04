@@ -18,7 +18,7 @@ module Armor =
                 Armor: 'a list
                 ChosenArmor: PropDrill<('a * DecorationSlots<'d, 's>) option>
             |})
-        : ReactElement when Decoration<'d, 's> and Armor<'a, 's, 'd, 'sb> and Skill<'s>
+        : ReactElement when Decoration<'d, 's> and Armor<'a, 's, 'd, 'set> and Skill<'s>
         =
 
         let findPieceFromId (id: string) : 'a option =

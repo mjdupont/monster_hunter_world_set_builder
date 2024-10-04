@@ -66,6 +66,16 @@ type SkillRank = {
 }
 
 [<StructuredFormatDisplay("{Name}")>]
+type Skill = {
+    Id: int
+    Slug: string
+    Name: string
+    Description: string
+    Ranks: SkillRank list
+} with
+    override this.ToString() = this.Name
+
+[<StructuredFormatDisplay("{Name}")>]
 type Decoration = {
     Id: int
     Name: string
@@ -74,6 +84,10 @@ type Decoration = {
     Skills: SkillRank list
     IconUri: string option
 } with
+    interface IDecoration<Skill>
+      with 
+        member this.Slot = Slot this.Slot
+        member this.Skills = this.Skills |> List.map (fun sr -> { Id = sr.Skill; Slug = ""; Name = ""; Description =""; Ranks = []}, sr.Level)
 
     override this.ToString() = this.Name
 
@@ -141,7 +155,8 @@ type Charm = {
     Name: string
     Ranks: CharmRank list
 } with
-
+    // interface IProvidesSkills<Skill> 
+    //   with member tSkills =
     override this.ToString() = this.Name
 
 type ArmorSetBonusRank = { Pieces: int; Skill: SkillRank }
@@ -159,17 +174,6 @@ type ArmorSet = {
     Pieces: int[]
     Bonus: ArmorSetBonus option
 }
-
-[<StructuredFormatDisplay("{Name}")>]
-type Skill = {
-    Id: int
-    Slug: string
-    Name: string
-    Description: string
-    Ranks: SkillRank list
-} with
-
-    override this.ToString() = this.Name
 
 
 type SkillCategory =

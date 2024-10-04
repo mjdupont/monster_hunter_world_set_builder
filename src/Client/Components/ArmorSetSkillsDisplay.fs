@@ -12,22 +12,23 @@ module ArmorSetSkillsDisplay =
     let Component
         (props:
             {|
-                GameData: MHWData
-                ChosenSet: ChosenSet<'s, 'a, 'w, 'c, 'd, 'sb>
+                SetBonuses: SetBonus<'sb, 'set, 's, 'sbr> list
+                SkillData: SkillData<'sd, 's> list
+                ChosenSet: ChosenSet<'s, 'a, 'w, 'c, 'd, 'set>
             |})
-            : ReactElement when Skill<'s> and SetBonus<'sb>
+            : ReactElement when Skill<'s> and ArmorSet<'set>
         =
 
         let armorSetBonuses =
-            props.ChosenSet |> ChosenSet.armorSetBonuses props.GameData.ArmorSets
+            props.ChosenSet |> ChosenSet.armorSetBonuses props.SetBonuses
 
         let totalSkills = (props.ChosenSet |> ChosenSet.allSkillRanks |> accumulateSkills)
 
         let totalSkillsElement = [
             for achievedSkill, achievedLevel in totalSkills do
                 let skillFromData =
-                    props.GameData.Skills
-                    |> List.filter (fun skill -> skill.Id = achievedSkill.SkillId)
+                    props.SkillData
+                    |> List.filter (fun skillData -> skillData.Skill = achievedSkill)
                     |> List.tryExactlyOne
 
                 let skillColor =
@@ -35,10 +36,7 @@ module ArmorSetSkillsDisplay =
                     | None -> "black"
                     | Some skillData ->
                         let maxLevel =
-                            skillData.Ranks
-                            |> List.sortByDescending (fun sr -> sr.Level)
-                            |> List.head
-                            |> (fun sr -> sr.Level)
+                            skillData.MaxRank
 
                         match achievedLevel with
                         | s when s = maxLevel -> "green"
@@ -58,13 +56,13 @@ module ArmorSetSkillsDisplay =
         ]
 
         let armorSetSkillsElement = [
-            for bonus, rank in armorSetBonuses ->
+            for setBonus, level in armorSetBonuses ->
                 Html.div [
                     prop.className ""
                     prop.children [
                         Html.h2 [
                             prop.style [ style.color "black" ]
-                            prop.text (sprintf "%s - %s" bonus.Name rank.Skill.SkillName)
+                            prop.text (sprintf "%s - %i" setBonus.Name level)
                         ]
                     ]
                 ]
