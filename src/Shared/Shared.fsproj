@@ -7,8 +7,12 @@
     <Compile Include="Helpers.fs" />
     <Compile Include="Option.fs" />
     <Compile Include="Result.fs" />
+    <Compile Include="SetSearch/Interfaces.fs" />
+    <Compile Include="SetSearch/Helpers.fs" />
+    <Compile Include="SetSearch/DecorationAssignment.fs" />
     <Compile Include="GameDataTypes.fs" />
     <Compile Include="GameDataLoader.fs" />
+    <Compile Include="GameDataParser.fs" />
     <Compile Include="GameData.fs" />
     <Compile Include="ModelData.fs" />   
     <Compile Include="DecorationAssignment.fs" /> 

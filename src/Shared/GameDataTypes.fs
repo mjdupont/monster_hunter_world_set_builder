@@ -196,7 +196,7 @@ type Weapon = {
 
 
 /// This module is intended to describe data types relating to parsing data from excel records from Monster Hunter World
-module MHWGameData =
+module MHWGameExcelData =
 
     module Armor =
         type ArmorType =
@@ -224,6 +224,8 @@ module MHWGameData =
             Dragon: int
         }
 
+        type ArmorSkill = { Id: int; Name: string; Level: int }
+
     open Armor
 
     ///
@@ -240,6 +242,7 @@ module MHWGameData =
         Resistances: Resistances
         //ModelID1 : int
         Slots: Slot list
+        Skills: (ArmorSkill) list
         Set_Skill: string
         Gender: Gender
         Set_Group: int
@@ -282,3 +285,34 @@ module MHWGameData =
         IsSetBonus: bool
         IconColorID: int
     }
+
+module MHWGameData = 
+    type Skill = { Id: int }
+
+    type ArmorSet = 
+      { SetId: int }
+
+    type Decoration = 
+      { Skills: (Skill * int) list 
+        Slot: Slot
+      }
+    
+    type Charm = 
+      { Skills: (Skill * int) list 
+      }
+    
+    type Armor = 
+      { Skills: (Skill * int) list 
+        Slots: Slot list
+        Set: ArmorSet
+      }
+
+    type SetBonusRank = 
+      { RequiredPieces : int
+        Skill : Skill
+      }
+
+    type SetBonus = 
+      { Set: ArmorSet 
+        Ranks: SetBonusRank  list
+      }

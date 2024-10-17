@@ -36,7 +36,12 @@ module Storage =
 
         printfn "Number of skills: %i" skills.Count
 
-        MHWGameDataLoader.Armor.loadArmor () |> ignore
+        let armor'' = MHWGameDataLoader.Armor.loadArmor ()
+        let decorations'' = MHWGameDataLoader.Decoration.loadDecorations () 
+        let setSkills'' = MHWGameDataLoader.SkillLevel.loadSkillLevels ()
+        let setSkillLevels'' =  MHWGameDataLoader.SetSkillLevel.loadSetSkillLevels ()
+
+        printfn "%A %A %A %A" armor'' decorations'' setSkills'' setSkillLevels''
 
         ()
     }

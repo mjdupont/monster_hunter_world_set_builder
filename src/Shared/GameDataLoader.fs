@@ -2,7 +2,7 @@ module MHWGameDataLoader
 
 
 open FSharp.Interop.Excel
-open APIDataTypes.MHWGameData
+open APIDataTypes.MHWGameExcelData
 open Helpers.ResultExpression
 open Helpers
 open System.Text.RegularExpressions
@@ -41,6 +41,8 @@ module Armor =
         | SlotValue of string
         | Gender of string
         | SlotCount of string
+        | SkillParse of string
+        | NonInteger of string
 
     let parseType rowFieldType =
         match rowFieldType with
@@ -157,6 +159,88 @@ module Armor =
                 )
             )
 
+    let parseSkill1 (i, dataRow: ArmorFromFile.Row) : Result<(ArmorSkill), ParseFailure> = result {
+        let! id, name =
+            splitPair dataRow.``Skill 1``
+            |> Option.toResult (
+                SkillParse(
+                    sprintf
+                        "Failed to parse row field \"Skill 1\" on row %i: Expected string in the format \"<int>: <string>\", Found %A"
+                        i
+                        dataRow.``Skill 1``
+                )
+            )
+
+        let! level =
+            dataRow.``Skill 1 Level``
+            |> tryAsInt
+            |> Option.toResult (
+                NonInteger(
+                    sprintf
+                        "Failed to parse row field \"Skill 1 Level\" on row %i: Expected an int-convertable value, Found %A"
+                        i
+                        dataRow.``Skill 1 Level``
+                )
+            )
+
+        return { Id = id; Name = name; Level = level }
+    }
+
+    let parseSkill2 (i, dataRow: ArmorFromFile.Row) : Result<(ArmorSkill), ParseFailure> = result {
+        let! id, name =
+            splitPair dataRow.``Skill 2``
+            |> Option.toResult (
+                SkillParse(
+                    sprintf
+                        "Failed to parse row field \"Skill 2\" on row %i: Expected string in the format \"<int>: <string>\", Found %A"
+                        i
+                        dataRow.``Skill 2``
+                )
+            )
+
+        let! level =
+            dataRow.``Skill 2 Level``
+            |> tryAsInt
+            |> Option.toResult (
+                NonInteger(
+                    sprintf
+                        "Failed to parse row field \"Skill 2 Level\" on row %i: Expected an int-convertable value, Found %A"
+                        i
+                        dataRow.``Skill 2 Level``
+                )
+            )
+
+        return { Id = id; Name = name; Level = level }
+    }
+
+    let parseSkill3 (i, dataRow: ArmorFromFile.Row) : Result<(ArmorSkill), ParseFailure> = result {
+        let! id, name =
+            splitPair dataRow.``Skill 3``
+            |> Option.toResult (
+                SkillParse(
+                    sprintf
+                        "Failed to parse row field \"Skill 3\" on row %i: Expected string in the format \"<int>: <string>\", Found %A"
+                        i
+                        dataRow.``Skill 3``
+                )
+            )
+
+        let! level =
+            dataRow.``Skill 3 Level``
+            |> tryAsInt
+            |> Option.toResult (
+                NonInteger(
+                    sprintf
+                        "Failed to parse row field \"Skill 3 Level\" on row %i: Expected an int-convertable value, Found %A"
+                        i
+                        dataRow.``Skill 3 Level``
+                )
+            )
+
+        return { Id = id; Name = name; Level = level }
+    }
+
+
 
     let parseArmorRow (i, dataRow: ArmorFromFile.Row) : Result<Armor, ParseFailure> =
         let parsed = result {
@@ -165,6 +249,11 @@ module Armor =
             let! equipSlot = parseEquipSlot dataRow.``Equip Slot``
             let! resistances = parseResistances dataRow
             let! slots = parseSlots dataRow
+            let! skill1 = parseSkill1 (i, dataRow)
+            let! skill2 = parseSkill2 (i, dataRow)
+            let! skill3 = parseSkill3 (i, dataRow)
+
+            let skills = [skill1; skill2; skill3] |> List.filter (fun skill -> skill.Id <> 0)
 
             return {
                 Name = dataRow.Name
@@ -177,6 +266,7 @@ module Armor =
                 Resistances = resistances
                 Slots = slots
                 Set_Skill = dataRow.``Set Skill 1``
+                Skills = skills
                 Gender = gender
                 Set_Group = (int) dataRow.``Set Group``
                 Description = dataRow.Description
@@ -194,6 +284,8 @@ module Armor =
                 | SlotValue errStr -> ArmorType((sprintf "Row %i:\t" i) + errStr)
                 | Gender errStr -> ArmorType((sprintf "Row %i:\t" i) + errStr)
                 | SlotCount errStr -> ArmorType((sprintf "Row %i:\t" i) + errStr)
+                | SkillParse errStr -> ArmorType((sprintf "Row %i:\t" i) + errStr)
+                | NonInteger errStr -> ArmorType((sprintf "Row %i:\t" i) + errStr)
 
             Error mapped
 
