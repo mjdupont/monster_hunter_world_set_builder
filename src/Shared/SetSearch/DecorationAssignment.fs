@@ -7,7 +7,7 @@ module DecorationAssignment =
     let inline skillContribution 
         (remainingSkillNeed: ('skill * int) list) 
         (skillSource: 'a) 
-        : int when 'a :> IProvidesSkills<'skill> and Skill<'skill>
+        : int when 'a :> IProvidesSkills<'skill2> and Skill<'skill> and Skill<'skill2> 
         =
 
         let bySkillId (requestedSkill, _) (containedSkill, _) = 
@@ -25,7 +25,7 @@ module DecorationAssignment =
     let contributes
         (remainingSkillNeed: ('skill * int) list)
         (skillSource: 'a)
-        : bool when Skill<'skill> and 'a :> IProvidesSkills<'skill>
+        : bool when Skill<'skill> and 'a :> IProvidesSkills<'skill2> and Skill<'skill2>
         =
         skillContribution remainingSkillNeed skillSource > 0
 
@@ -47,7 +47,8 @@ module DecorationAssignment =
         (decoration: 'decoration) 
         : bool 
         when Skill<'skill>
-        and Decoration<'decoration, 'skill>
+        and Decoration<'decoration, 'skill2>
+        and Skill<'skill2>
         =
         (decoration |> skillContribution remainingSkillNeed) > 2
     
@@ -55,13 +56,13 @@ module DecorationAssignment =
 
     let addToRequestedSkills 
         (skillNeed: ('skill * int) list) 
-        (newSkills: ('skill * int) list) 
-        : ('skill * int) list when Skill<'skill> 
+        (newSkills: ('skill2 * int) list) 
+        : ('skill * int) list when Skill<'skill> and Skill<'skill2>
         =
-        let folder rSkillNeed (skillToRemove, valueToRemove) =
+        let folder rSkillNeed ((skillToRemove:'skill2), valueToRemove) =
             rSkillNeed
-            |> List.map (fun (rSkill, rValue) ->
-                if rSkill = skillToRemove then
+            |> List.map (fun ((rSkill:'skill), rValue) ->
+                if rSkill.SkillId = skillToRemove.SkillId then
                     rSkill, rValue - valueToRemove
                 else
                     rSkill, rValue)
@@ -90,7 +91,7 @@ module DecorationAssignment =
         (requestedSkills: ('skill * int) list)
         (decorations: ('decoration * int) list)
         (slotCounts: (Slot * int) list)
-        : int when Skill<'skill> and Decoration<'decoration, 'skill>
+        : int when Skill<'skill> and Decoration<'decoration, 'skill2> and Skill<'skill2>
         =
         let hardDecorations =
             decorations
@@ -133,6 +134,21 @@ module DecorationAssignment =
 
 
 
+    let actualReachHeuristic requestedSkills (groupedDecorations: ((int * int * Slot) * ('decoration * int) list) list when Decoration<'decoration, 'skill>) slots =
+      let maxContribution =
+          groupedDecorations 
+          |> List.map (fst >> (fun (a,b,c) -> b))
+          |> List.tryMax
+          |> Option.defaultValue 0
+
+      slots
+      |> List.map (function
+          | (Slot 4, n) -> maxContribution * n
+          | (_, n) -> n)
+      |> List.sum
+
+
+
     let bestCaseReach requestedSkills decorations slots = 
         let reach = simplisticReachHeuristic slots 
         let hardContribution = potentialHardDecorationContribution requestedSkills decorations slots
@@ -143,12 +159,12 @@ module DecorationAssignment =
     let sortOrder 
         (requestedSkills: ('skill * int) list) 
         (decoration: 'decoration) 
-        : (int * int * Slot) when Skill<'skill> and Decoration<'decoration, 'skill> 
+        : (int * int * Slot) when Skill<'skill> and Decoration<'decoration, 'skill2> and Skill<'skill2> 
         = 
           
         let contribution = decoration |> skillContribution requestedSkills
         // Unused space is only used to assign size 4 decorations that contribute only one skill as the last decoration assigned.
-        let unusedSpace = slotReachHeuristic decoration.Slot - contribution
+        let unusedSpace = contribution - slotReachHeuristic decoration.Slot
         (unusedSpace, contribution, decoration.Slot)
 
     let reSortKey newKey decoration groupedDecorations =
@@ -191,53 +207,61 @@ module DecorationAssignment =
         (decorationSlots: (Slot * int) list)
         (groupedDecorations: ((int * int * Slot) * ('decoration * int) list) list) 
         : ((Slot * 'decoration option) list) option
-          when Skill<'skill> and Decoration<'decoration, 'skill> 
+          when Skill<'skill> and Decoration<'decoration, 'skill2> 
         =
 
         let tryAssignWithNewGroupedDecorations = tryAssignDecorations assignedDecorations requestedSkills decorationSlots
         
-        let slottableDecorations = 
-            groupedDecorations 
-            |> List.skipWhile (fun ((_,_,Slot decorationSize), _decorations) -> decorationSlots |> List.exists (fun (Slot availableSlot, count) -> availableSlot >= decorationSize))
+        let actualReachEstimate =
+            actualReachHeuristic requestedSkills groupedDecorations decorationSlots
 
+        let distance = requestedSkills |> distance
 
-        match requestedSkills, slottableDecorations with
-        | [], _ -> Some (assignedDecorations @ (decorationSlots |> asItems |> List.map (fun s -> s, None)))
-        | _, [] -> None
+        if actualReachEstimate < distance then
+            None
+        else
 
-        | _, (key, []) :: restGroupedDecorations ->
-          tryAssignWithNewGroupedDecorations restGroupedDecorations
-        | _, (key, ((_, 0) :: restDecorations)) :: restGroupedDecorations ->
-          let newGroupedDecorations = (key, restDecorations) :: restGroupedDecorations
-          tryAssignWithNewGroupedDecorations newGroupedDecorations
+            let slottableDecorations = 
+                groupedDecorations 
+                |> List.skipWhile (fun ((_,_,Slot decorationSize), _decorations) -> not (decorationSlots |> List.exists (fun (Slot availableSlot, count) -> availableSlot >= decorationSize)))
 
-        | _, (key, ((decoration, count) as decoCount) :: restDecorations) :: restGroupedDecorations ->
-          let newKey = decoration |> sortOrder requestedSkills
-          if key <> newKey 
-          then 
-              let groupedDecorationsWithResortedDecoration = restGroupedDecorations |> reSortKey newKey decoCount
-              let newGroupedDecorations = 
-                  if restDecorations = [] 
-                  then groupedDecorationsWithResortedDecoration 
-                  else (key, restDecorations) :: groupedDecorationsWithResortedDecoration
+            match requestedSkills, slottableDecorations with
+            | [], _ -> Some (assignedDecorations @ (decorationSlots |> asItems |> List.map (fun s -> s, None)))
+            | _, [] -> None
+
+            | _, (key, []) :: restGroupedDecorations ->
+              tryAssignWithNewGroupedDecorations restGroupedDecorations
+            | _, (key, ((_, 0) :: restDecorations)) :: restGroupedDecorations ->
+              let newGroupedDecorations = (key, restDecorations) :: restGroupedDecorations
               tryAssignWithNewGroupedDecorations newGroupedDecorations
-          else
-              option {
-                  let! slot, remainingSlots = decorationSlots |> smallestSlotToFit decoration.Slot
-                  let newRestGroupedDecorations = reWrapGroupedDecorations key decoration count restDecorations restGroupedDecorations
-                  let newRequestedSkills = decoration.Skills |> addToRequestedSkills requestedSkills
-                  let newAssignedDecorations = (slot, Some decoration) :: assignedDecorations
 
-                  return! 
-                    match tryAssignDecorations newAssignedDecorations newRequestedSkills remainingSlots newRestGroupedDecorations with
-                    | Some assignment -> Some assignment
-                    | None ->
-                        let newGroupedDecorations = 
-                            if restDecorations = [] 
-                            then restGroupedDecorations 
-                            else (key, restDecorations) :: restGroupedDecorations
-                        tryAssignWithNewGroupedDecorations newGroupedDecorations
-                }
+            | _, (key, ((decoration, count) as decoCount) :: restDecorations) :: restGroupedDecorations ->
+              let newKey = decoration |> sortOrder requestedSkills
+              if key <> newKey 
+              then 
+                  let groupedDecorationsWithResortedDecoration = restGroupedDecorations |> reSortKey newKey decoCount
+                  let newGroupedDecorations = 
+                      if restDecorations = [] 
+                      then groupedDecorationsWithResortedDecoration 
+                      else (key, restDecorations) :: groupedDecorationsWithResortedDecoration
+                  tryAssignWithNewGroupedDecorations newGroupedDecorations
+              else
+                  option {
+                      let! slot, remainingSlots = decorationSlots |> smallestSlotToFit decoration.Slot
+                      let newRestGroupedDecorations = reWrapGroupedDecorations key decoration count restDecorations restGroupedDecorations
+                      let newRequestedSkills = decoration.Skills |> addToRequestedSkills requestedSkills
+                      let newAssignedDecorations = (slot, Some decoration) :: assignedDecorations
+
+                      return! 
+                        match tryAssignDecorations newAssignedDecorations newRequestedSkills remainingSlots newRestGroupedDecorations with
+                        | Some assignment -> Some assignment
+                        | None ->
+                            let newGroupedDecorations = 
+                                if restDecorations = [] 
+                                then restGroupedDecorations 
+                                else (key, restDecorations) :: restGroupedDecorations
+                            tryAssignWithNewGroupedDecorations newGroupedDecorations
+                    }
 
 
 
@@ -279,11 +303,11 @@ module DecorationAssignment =
         (requestedSkills: ('skill * int) list)
         (((availableSlots: (Slot * int) list), (reservedSlots: (Slot * int) list)) as slots)
         (groupedDecorations: ((int * int * Slot) * ('decoration * int) list) list)
-        : (Slot * 'decoration option) list option when Skill<'skill> and Decoration<'decoration, 'skill> =
+        : (Slot * 'decoration option) list option when Skill<'skill> and Decoration<'decoration, 'skill2> and Skill<'skill2> =
         
         let assignment = tryAssignDecorations [] requestedSkills availableSlots groupedDecorations
         match reservedSlots, assignment with
-        | _, Some assignment -> Some assignment
+        | _, Some assignment -> Some (assignment @ (reservedSlots |> asItems |> List.map (fun s -> s, None)))
         | [], None -> None
         | _, None -> 
             match allocateReservedSlot slots with
@@ -293,6 +317,7 @@ module DecorationAssignment =
         
 
     let reserveUnneededSlots excessSpace decorationSlots = 
+        let excessSpace = max excessSpace 0
 
         // Intentionally truncating decimal component
         let largeSlotsToAssign = excessSpace / 2
@@ -315,7 +340,7 @@ module DecorationAssignment =
         (requestedSkills: ('skill * int) list)
         (decorationSlots: (Slot * int) list)
         (decorations: ('decoration * int) list)
-        : (Slot * 'decoration option) list option when Skill<'skill> and Decoration<'decoration, 'skill> =
+        : (Slot * 'decoration option) list option when Skill<'skill> and Decoration<'decoration, 'skill2> and Skill<'skill2> =
 
         let bestPossibleReach = bestCaseReach requestedSkills decorations decorationSlots
         let expectedExcessSpace = bestPossibleReach - (distance requestedSkills)

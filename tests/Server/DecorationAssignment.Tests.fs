@@ -67,10 +67,13 @@ let decorationAssignment =
 
             let availableDecorations = List.zip decorations [ 1; 1; 1; 2 ]
 
-            let slots = [ Slot 4; Slot 4; Slot 4 ] |> List.countBy id
+            let slots = 
+                [ Slot 4; Slot 4; Slot 4 ] 
+                |> List.countBy id
+                |> List.map (fun (Slot s, count) -> (SetSearch.Interfaces.Slot s), count)
 
-            let assignment =
-                findDecorationsSatisfyingSkills skills requestedSkills slots availableDecorations
+            let assignment = 
+                SetSearch.DecorationAssignment.findDecorationsSatisfyingSkills' requestedSkills slots availableDecorations
 
             let assignedDecorations =
                 assignment
@@ -114,10 +117,12 @@ let decorationAssignment =
             let availableDecorations = List.zip decorations [ 1; 1; 1; 2; 1; 2; 1 ]
 
             let slots =
-                [ Slot 4; Slot 4; Slot 4; Slot 4; Slot 2; Slot 1; Slot 1 ] |> List.countBy id
+                [ Slot 4; Slot 4; Slot 4; Slot 4; Slot 2; Slot 1; Slot 1 ] 
+                |> List.countBy id
+                |> List.map (fun (Slot s, count) -> (SetSearch.Interfaces.Slot s), count)
 
-            let assignment =
-                findDecorationsSatisfyingSkills skills requestedSkills slots availableDecorations
+            let assignment = 
+                SetSearch.DecorationAssignment.findDecorationsSatisfyingSkills' requestedSkills slots availableDecorations
 
             let assignedDecorations =
                 assignment
@@ -168,10 +173,13 @@ let decorationAssignment =
 
             let availableDecorations = List.zip decorations [ 1; 1; 1; 2; 1; 2; 1 ]
 
-            let slots = [ Slot 4; Slot 4; Slot 4; Slot 1; Slot 1 ] |> List.countBy id
+            let slots = 
+                [ Slot 4; Slot 4; Slot 4; Slot 1; Slot 1 ] 
+                |> List.countBy id
+                |> List.map (fun (Slot s, count) -> (SetSearch.Interfaces.Slot s), count)
 
-            let assignment =
-                findDecorationsSatisfyingSkills skills requestedSkills slots availableDecorations
+            let assignment = 
+                SetSearch.DecorationAssignment.findDecorationsSatisfyingSkills' requestedSkills slots availableDecorations
 
             let expectedAssignment =
                 [
@@ -188,7 +196,7 @@ let decorationAssignment =
             let assignedDecorations =
                 assignment
                 |> Option.defaultValue []
-                |> List.choose (fun (slot, maybeDeco) -> maybeDeco)
+                |> List.choose (fun (slot, maybeDeco) -> maybeDeco)           
 
             Expect.equal
                 assignment
@@ -221,10 +229,13 @@ let decorationAssignment =
 
             let availableDecorations = List.zip decorations [ 1; 1; 1; 1; 1; 1 ]
 
-            let slots = [ Slot 4; Slot 4; Slot 4; Slot 4; Slot 1 ] |> List.countBy id
+            let slots = 
+              [ Slot 4; Slot 4; Slot 4; Slot 4; Slot 1 ] 
+              |> List.countBy id
+              |> List.map (fun (Slot s, count) -> (SetSearch.Interfaces.Slot s), count)
 
-            let assignment =
-                findDecorationsSatisfyingSkills skills requestedSkills slots availableDecorations
+            let assignment = 
+                SetSearch.DecorationAssignment.findDecorationsSatisfyingSkills' requestedSkills slots availableDecorations
 
             let expectedAssignment =
                 [
@@ -272,10 +283,12 @@ let decorationAssignment =
             let availableDecorations = List.zip decorations [ 2; 1; 1; 1; 1; 1; 1 ]
 
             let slots =
-                [ Slot 4; Slot 4; Slot 4; Slot 4; Slot 4; Slot 4; Slot 1 ] |> List.countBy id
+                [ Slot 4; Slot 4; Slot 4; Slot 4; Slot 4; Slot 4; Slot 1 ] 
+                |> List.countBy id  
+                |> List.map (fun (Slot s, count) -> (SetSearch.Interfaces.Slot s), count)
 
-            let assignment =
-                findDecorationsSatisfyingSkills skills requestedSkills slots availableDecorations
+            let assignment = 
+                SetSearch.DecorationAssignment.findDecorationsSatisfyingSkills' requestedSkills slots availableDecorations
 
             let expectedAssignment =
                 [
@@ -349,16 +362,17 @@ let decorationAssignment =
                 ]
                 |> List.concat
                 |> List.countBy id
+                |> List.map (fun (Slot s, count) -> (SetSearch.Interfaces.Slot s), count)
 
             let runAssignment () =
-                let _ = findDecorationsSatisfyingSkills skills requestedSkills slots allDecorations
+                let _ = SetSearch.DecorationAssignment.findDecorationsSatisfyingSkills' requestedSkills slots allDecorations
                 ()
 
             let threeSeconds () =
                 Async.Sleep(3000) |> Async.RunSynchronously
 
-            let assignment =
-                findDecorationsSatisfyingSkills skills requestedSkills slots allDecorations
+            let assignment = 
+                SetSearch.DecorationAssignment.findDecorationsSatisfyingSkills' requestedSkills slots allDecorations
 
 
             Expect.isFasterThan runAssignment threeSeconds "Took longer than three seconds to assign decorations"
@@ -414,13 +428,14 @@ let decorationAssignment =
                 ]
                 |> List.concat
                 |> List.countBy id
+                |> List.map (fun (Slot s, count) -> (SetSearch.Interfaces.Slot s), count)
 
             let runAssignment () =
-                let _ = findDecorationsSatisfyingSkills skills requestedSkills slots allDecorations
+                let _ = SetSearch.DecorationAssignment.findDecorationsSatisfyingSkills' requestedSkills slots allDecorations
                 ()
 
             let assignment =
-                findDecorationsSatisfyingSkills skills requestedSkills slots allDecorations
+                SetSearch.DecorationAssignment.findDecorationsSatisfyingSkills' requestedSkills slots allDecorations
 
 
             Expect.isFasterThan runAssignment threeSeconds "Took longer than three seconds to assign decorations"
@@ -499,13 +514,15 @@ let decorationAssignment =
                 ]
                 |> List.concat
                 |> List.countBy id
+                |> List.map (fun (Slot s, count) -> (SetSearch.Interfaces.Slot s), count)
+
 
             let runAssignment () =
-                let _ = findDecorationsSatisfyingSkills skills requestedSkills slots allDecorations
+                let _ = SetSearch.DecorationAssignment.findDecorationsSatisfyingSkills' requestedSkills slots allDecorations
                 ()
 
             let assignment =
-                findDecorationsSatisfyingSkills skills requestedSkills slots allDecorations
+                SetSearch.DecorationAssignment.findDecorationsSatisfyingSkills' requestedSkills slots allDecorations
 
             Expect.isFasterThan runAssignment threeSeconds "Took longer than three seconds to assign decorations"
             Expect.isSome assignment "Failed to find a decoration assignment"
@@ -539,15 +556,17 @@ let decorationAssignment =
                          |> (fun x -> int (ceil (float x) / (float level))))
                      |> List.min))
 
-            let slots = [ Slot 4, 5; Slot 1, 2; Slot 2, 2 ]
+            let slots = 
+                [ Slot 4, 5; Slot 1, 2; Slot 2, 2 ]
+                |> List.map (fun (Slot s, count) -> (SetSearch.Interfaces.Slot s), count)
 
 
             let runAssignment () =
-                let _ = findDecorationsSatisfyingSkills skills requestedSkills slots allDecorations
+                let _ = SetSearch.DecorationAssignment.findDecorationsSatisfyingSkills' requestedSkills slots allDecorations
                 ()
 
             let assignment =
-                findDecorationsSatisfyingSkills skills requestedSkills slots allDecorations
+                SetSearch.DecorationAssignment.findDecorationsSatisfyingSkills' requestedSkills slots allDecorations
 
             Expect.isFasterThan runAssignment threeSeconds "Took longer than three seconds to assign decorations"
             Expect.isSome assignment "Failed to find a decoration assignment"

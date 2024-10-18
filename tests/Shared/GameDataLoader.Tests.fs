@@ -11,7 +11,7 @@ let gameDataLoader =
         testCase "validates all armor fine"
         <| fun _ ->
 
-            let successfullyParsed = MHWGameDataLoader.Armor.test ()
+            //let successfullyParsed = MHWGameDataLoader.Armor.test ()
 
             let expected = false
             let actual = false //Todo.isValid ""

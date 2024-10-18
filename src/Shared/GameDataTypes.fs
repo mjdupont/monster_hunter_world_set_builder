@@ -64,6 +64,26 @@ type SkillRank = {
     Modifiers: SkillRankModifier[]
 }
 
+type SrSkill = 
+  { Id : int } with 
+      interface SetSearch.Interfaces.ISkill with 
+          member this.SkillId = this.Id
+
+
+[<StructuredFormatDisplay("{Name}")>]
+type Skill = {
+    Id: int
+    Slug: string
+    Name: string
+    Description: string
+    Ranks: SkillRank list
+} with
+
+    override this.ToString() = this.Name
+    interface SetSearch.Interfaces.ISkill with
+      member this.SkillId = this.Id
+
+
 [<StructuredFormatDisplay("{Name}")>]
 type Decoration = {
     Id: int
@@ -75,6 +95,11 @@ type Decoration = {
 } with
 
     override this.ToString() = this.Name
+    interface SetSearch.Interfaces.IDecoration<SrSkill> with
+      member this.Skills = this.Skills |> List.map (fun sr -> ({Id = sr.Skill}), sr.Level)
+      member this.Slot = SetSearch.Interfaces.Slot this.Slot
+                          
+
 
 type ArmorType =
     | Headgear
@@ -159,16 +184,6 @@ type ArmorSet = {
     Bonus: ArmorSetBonus option
 }
 
-[<StructuredFormatDisplay("{Name}")>]
-type Skill = {
-    Id: int
-    Slug: string
-    Name: string
-    Description: string
-    Ranks: SkillRank list
-} with
-
-    override this.ToString() = this.Name
 
 
 type SkillCategory =

@@ -14,7 +14,7 @@ module APIData =
     ///
     /// Calculates the highest level of each skill.
     ///
-    let skillCaps skills =
+    let skillCaps (skills:Skill list) =
         skills
         |> List.map (fun skill -> skill, (skill.Ranks |> List.map (fun sr -> sr.Level) |> List.max))
         |> Map.ofList
