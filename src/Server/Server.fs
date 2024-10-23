@@ -35,14 +35,19 @@ module Storage =
         weapons.AddRange(weapons')
 
         printfn "Number of skills: %i" skills.Count
+        printfn ""
 
         let armor'' = MHWGameDataLoader.Armor.loadArmor ()
         let decorations'' = MHWGameDataLoader.Decoration.loadDecorations () 
-        let setSkills'' = MHWGameDataLoader.SkillLevel.loadSkillLevels ()
+        let skills'' = MHWGameDataLoader.SkillLevel.loadSkillLevels ()
         let setSkillLevels'' =  MHWGameDataLoader.SetSkillLevel.loadSetSkillLevels ()
 
-        printfn "%A %A %A %A" armor'' decorations'' setSkills'' setSkillLevels''
-
+        let armorCounts = 
+            armor'' 
+            |> List.groupBy (fun a -> a.EquipSlot) 
+        for (es, armor) in armorCounts do 
+            printfn $"{es}: {armor |> List.length}"
+            
         ()
     }
 

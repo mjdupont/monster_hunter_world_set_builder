@@ -25,6 +25,24 @@ module Async =
 
 module List =
 
+    /// <summary>
+    /// Zips together two lists, to the length of the smaller of the two lists. Returns the zipped lists and the remainders of each of the input lists.
+    /// </summary>
+    let zipBoundedFull xs ys = 
+        let rec zipUntilFirstTail zipped xs ys = 
+            match xs, ys with 
+            | [], _
+            | _, []
+            | [],[] -> zipped, xs, ys
+            | headX :: restX, headY :: restY ->
+              zipUntilFirstTail ((headX, headY) :: zipped) restX restY
+        zipUntilFirstTail [] xs ys
+
+    /// <summary>
+    /// Zips together two lists, to the length of the smaller of the two lists. Returns the zipped elements and discards remainders.
+    /// </summary>
+    let zipBounded xs ys = zipBoundedFull xs ys |> (fun (zipped, _, _) -> zipped) 
+
     let partitionBy projection xs =
         let folder (matches, notmatches) element =
             match element |> projection with

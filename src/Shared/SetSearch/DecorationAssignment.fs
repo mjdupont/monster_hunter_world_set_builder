@@ -59,13 +59,13 @@ module DecorationAssignment =
         (newSkills: ('skill2 * int) list) 
         : ('skill * int) list when Skill<'skill> and Skill<'skill2>
         =
-        let folder rSkillNeed ((skillToRemove:'skill2), valueToRemove) =
-            rSkillNeed
-            |> List.map (fun ((rSkill:'skill), rValue) ->
-                if rSkill.SkillId = skillToRemove.SkillId then
-                    rSkill, rValue - valueToRemove
+        let folder requestedSkillNeed ((skillToRemove:'skill2), valueToRemove) =
+            requestedSkillNeed
+            |> List.map (fun ((requestedSkill:'skill), requestedValue) ->
+                if areSameSkill requestedSkill skillToRemove then
+                    requestedSkill, requestedValue - valueToRemove
                 else
-                    rSkill, rValue)
+                    requestedSkill, requestedValue)
 
         newSkills
         |> List.fold folder skillNeed

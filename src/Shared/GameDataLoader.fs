@@ -8,7 +8,7 @@ open Helpers
 open System.Text.RegularExpressions
 
 module Helpers =
-    let pairRegex = Regex("(\d): (.*)")
+    let pairRegex = Regex("(\d*): (.*)")
 
     let inline tryAsInt x =
         try
@@ -18,7 +18,7 @@ module Helpers =
 
     let splitPair text =
         match pairRegex.Match(text).Groups |> List.ofSeq with
-        | [ id; name ] when id.Success && name.Success -> id.Value |> tryAsInt |> Option.map (fun id -> id, name.Value)
+        | [ fullText; id; name ] when id.Success && name.Success -> id.Value |> tryAsInt |> Option.map (fun id -> id, name.Value)
         | _ -> None
 
 open Helpers
@@ -295,6 +295,8 @@ module Armor =
 
         let successfullyParsed, errors =
             rows |> List.indexed |> List.partitionByR (parseArmorRow)
+
+        printfn $"{successfullyParsed}, {errors}"
 
         successfullyParsed
 

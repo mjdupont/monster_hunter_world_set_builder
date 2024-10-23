@@ -12,59 +12,86 @@ module Interfaces =
     /// <summary> For the purpose of the Set Search logic, a Skill only needs to provide a unique identifier.
     /// `int` is used here for simplicity. Any other equatable and comparable type might be substituted here.
     /// </summary>
-    type Skill<'s when 's :> ISkill> = 's
+    type Skill<'skill when 'skill :> ISkill> = 'skill
 
+    type IProvidesSkills<'skill> when Skill<'skill> = 
+        abstract Skills : ('skill * int) list
 
-
-    type IProvidesSkills<'s> when Skill<'s> = 
-        abstract Skills : ('s * int) list
-
-
-
-    type IHasSlots<'d> =
+    type IHasSlots =
         abstract Slots : Slot list
 
+    type IDecoration<'skill> when Skill<'skill> =
+        inherit IProvidesSkills<'skill>
+        abstract Slot : Slot
+
+
+    type Decoration<'decoration, 'skill 
+        when Skill<'skill>
+        and 'decoration :> IDecoration<'skill>
+        > = 'decoration
 
     /// <summary> For the purpose of the Set Search logic, a Set only needs to provide a unique identifier.
     /// `int` is used here for simplicity. Any other equatable and comparable type might be substituted here.
     /// </summary>
-    type IPartOfSet = 
+    type IPartOfArmorSet = 
         abstract SetId : int
 
-    type IEquippable = 
-        abstract EquipSlot : string
-    
-    // type IHasActiveSlots<'d> = 
-    //     abstract ActiveSlots : (Slot * 'd option) list
-    //     abstract SetActiveSlots : (Slot * 'd option) list -> IHasActiveSlots<'d>
+    type ArmorSet<'armorset when 'armorset :> IPartOfArmorSet> = 'armorset
 
-    // type ArmorSet<'set when 'set : equality> = 'set
-    // type IPartOfSet<'set when ArmorSet<'set>> = 
-    //     abstract Set : 'set 
+    /// <summary> For the purpose of the Set Search logic, a Set only needs to provide a unique identifier.
+    /// `string` is used here for simplicity. Any other equatable and comparable type might be substituted here.
+    /// </summary>
+    type IEquippable<'equipmentType when 'equipmentType: comparison> = 
+        abstract EquipSlot : 'equipmentType
 
-    type IDecoration<'s> when Skill<'s> =
-        inherit IProvidesSkills<'s>
-        abstract Slot : Slot
+    type IEquipment<'armorset, 'equipmentType, 'skill> when Skill<'skill> and ArmorSet<'armorset> and 'equipmentType : comparison = 
+        inherit IEquippable<'equipmentType>
+        abstract MaybeSlots : Slot list option
+        abstract MaybeSkills : ('skill*int) list option
+        abstract MaybeSetID: 'armorset option
+
+    type IMaybeHoldsDecorations<'decoration> = 
+        abstract MaybeDecorations : (Slot * 'decoration option) list option
 
 
-    type Decoration<'d, 's 
-        when Skill<'s>
-        and 'd :> IDecoration<'s>
-        > = 'd
+    type IActiveEquipment<'armorset, 'decoration, 'equipmentType, 'skill> 
+        when Skill<'skill> 
+        and ArmorSet<'armorset> 
+        and Decoration<'decoration, 'skill> 
+        and 'equipmentType : comparison
+        = 
+        inherit IEquipment<'armorset, 'equipmentType, 'skill>
+        inherit IMaybeHoldsDecorations<'decoration>
 
 
     // type Charm<'c, 's when Skill<'s> and 'c :> IProvidesSkills<'s>> = 'c
     
 
-    // type Armor<'a, 's, 'd, 'set
-    //     when Skill<'s> 
-    //     and Decoration<'d, 's> 
-    //     and ArmorSet<'set>
-    //     and 'a :> IProvidesSkills<'s> 
-    //     and 'a :> IHasSlots<'d> 
-    //     and 'a :> IPartOfSet<'set>
-    //     > = 'a
+    // type IArmor<'armorset, 'equipmentType, 'skill> when Skill<'skill> and ArmorSet<'armorset> and 'equipmentType : comparison =
+    //     inherit IProvidesSkills<'skill>
+    //     inherit IPartOfArmorSet
+    //     inherit IHasSlots
+    //     inherit IEquippable<'equipmentType>
 
+    // type Armor<'armor, 'armorset, 'equipmentType, 'skill
+    //     when Skill<'skill> 
+    //     and ArmorSet<'armorset>
+    //     and 'armor :> IArmor<'armorset, 'equipmentType, 'skill>
+    //     and 'equipmentType : comparison
+    //     > = 'armor
+
+    type IEquipmentLoadout<'armorset, 'decoration, 'equipment, 'equipmentType, 'skill> 
+          when IActiveEquipment<'armorset, 'decoration, 'equipmentType, 'skill>
+          and ArmorSet<'armorset>
+          and Decoration<'decoration, 'skill>
+          and 'equipmentType : comparison 
+          and Skill<'skill> 
+          and 'equipment :> IActiveEquipment<'armorset, 'decoration, 'equipmentType, 'skill> =
+        abstract EquipmentTypes: string list
+        abstract OpenEquipmentSlots: string list
+        abstract Equipment: ('equipmentType * 'equipment option) list
+        
+        
     // type ISetBonusRank<'s when Skill<'s>> = 
     //     abstract RequiredPieces: int
     //     abstract Skill: 's

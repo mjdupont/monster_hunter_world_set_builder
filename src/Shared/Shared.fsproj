@@ -10,6 +10,7 @@
     <Compile Include="SetSearch/Interfaces.fs" />
     <Compile Include="SetSearch/Helpers.fs" />
     <Compile Include="SetSearch/DecorationAssignment.fs" />
+    <Compile Include="SetSearch/EquipmentAssignment.fs" />
     <Compile Include="GameDataTypes.fs" />
     <Compile Include="GameDataLoader.fs" />
     <Compile Include="GameDataParser.fs" />
