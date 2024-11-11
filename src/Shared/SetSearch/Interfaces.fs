@@ -64,47 +64,27 @@ module Interfaces =
         inherit IMaybeHoldsDecorations<'decoration>
 
 
-    // type Charm<'c, 's when Skill<'s> and 'c :> IProvidesSkills<'s>> = 'c
-    
 
-    // type IArmor<'armorset, 'equipmentType, 'skill> when Skill<'skill> and ArmorSet<'armorset> and 'equipmentType : comparison =
-    //     inherit IProvidesSkills<'skill>
-    //     inherit IPartOfArmorSet
-    //     inherit IHasSlots
-    //     inherit IEquippable<'equipmentType>
 
-    // type Armor<'armor, 'armorset, 'equipmentType, 'skill
-    //     when Skill<'skill> 
-    //     and ArmorSet<'armorset>
-    //     and 'armor :> IArmor<'armorset, 'equipmentType, 'skill>
-    //     and 'equipmentType : comparison
-    //     > = 'armor
+
+
+    type IOrderedEquipment<'armorset, 'decoration, 'equipment, 'equipmentType, 'key, 'skill> =
+        abstract GetBestEquipment: 'equipmentType list -> ('equipment * IOrderedEquipment<'armorset, 'decoration, 'equipment, 'equipmentType, 'key, 'skill>) option
+        abstract FromEquipment: ('equipment -> 'key) -> 'equipment list -> IOrderedEquipment<'armorset, 'decoration, 'equipment, 'equipmentType, 'key, 'skill>
+        abstract GetEquipment: 'equipmentType -> 'equipment
+        abstract SetEquipment: 'equipment option -> 'equipmentType -> IOrderedEquipment<'armorset, 'decoration, 'equipment, 'equipmentType, 'key, 'skill>
 
     type IEquipmentLoadout<'armorset, 'decoration, 'equipment, 'equipmentType, 'skill> 
-          when IActiveEquipment<'armorset, 'decoration, 'equipmentType, 'skill>
-          and ArmorSet<'armorset>
-          and Decoration<'decoration, 'skill>
-          and 'equipmentType : comparison 
-          and Skill<'skill> 
-          and 'equipment :> IActiveEquipment<'armorset, 'decoration, 'equipmentType, 'skill> =
-        abstract EquipmentTypes: string list
-        abstract OpenEquipmentSlots: string list
-        abstract Equipment: ('equipmentType * 'equipment option) list
-        
-        
-    // type ISetBonusRank<'s when Skill<'s>> = 
-    //     abstract RequiredPieces: int
-    //     abstract Skill: 's
-    // type SetBonusRank<'sbr, 's when 'sbr :> ISetBonusRank<'s> and Skill<'s>> = 'sbr
-    
-
-    // type ISetBonus<'set, 's, 'sbr when SetBonusRank<'sbr, 's> and ArmorSet<'set>> =
-    //     abstract Set: 'set
-    //     abstract Ranks: 'sbr list
-
-    // type SetBonus<'sb, 'set, 's, 'sbr> 
-    //   when 'sb :> ISetBonus<'set, 's, 'sbr> 
-    //   and ArmorSet<'set> 
-    //   and Skill<'s> 
-    //   and SetBonusRank<'sbr, 's>
-    //   = 'sb
+        when IActiveEquipment<'armorset, 'decoration, 'equipmentType, 'skill>
+        and ArmorSet<'armorset>
+        and Decoration<'decoration, 'skill>
+        and 'equipmentType : comparison 
+        and Skill<'skill> 
+        and 'equipment :> IActiveEquipment<'armorset, 'decoration, 'equipmentType, 'skill> =
+        abstract EquipmentTypes: 'equipmentType list
+        abstract UnfilledEquipmentTypes: 'equipmentType list
+        abstract AchievedSkills: ('skill * int) list
+        abstract EmptySlots: Slot list
+        abstract ArmorSkillContribution: ('armorset * int) list
+        abstract GetEquipment : 'equipmentType -> 'equipment
+        abstract SetEquipment: 'equipment option -> 'euipmentType -> IEquipmentLoadout<'armorset, 'decoration, 'equipment, 'equipmentType, 'skill>

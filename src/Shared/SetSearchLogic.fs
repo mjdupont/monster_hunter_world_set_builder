@@ -386,6 +386,50 @@ let rec assignArmor3'
     | Some(updatedSet, remainingArmor, remainingCharms) ->
         assignArmor3' skills fixedSet decorations requestedSkills remainingCharms remainingArmor updatedSet
 
+
+[<TailCall>]
+let fib n = 
+    let rec go n (prior, total) = 
+        match n with 
+        | n when n < 0 -> 0
+        | 1 -> total
+        | _ -> go (n-1) (total, prior + total)
+
+    go n (0, 1)
+
+let stringForPalindrome (x:string) = 
+    (x.ToLower()).ToCharArray() 
+    |> List.ofArray
+    |> List.filter (fun c -> System.Char.IsLetterOrDigit(c))
+
+let isPalindrome chars = 
+
+    let rec isPalindrome' chars (reservedCharacterStack, palindromicCenter) =
+        match chars with 
+        | [] ->
+            match reservedCharacterStack with 
+            | [] -> true
+            | _ -> false
+        | nextChar :: restChars ->
+            match palindromicCenter with 
+            // Search for the center of a palindrome
+            | [] ->
+                match reservedCharacterStack with
+                // Palindrome is even length, center is pair, X ... A, A ... X
+                | firstReserved :: restReserved when nextChar = firstReserved -> isPalindrome' restChars (restReserved, (nextChar :: [firstReserved]))
+                // Palindrome is odd length, center is singleton, X ... A, B, A ... X
+                | firstReserved :: secondReserved :: restReserved when nextChar = secondReserved -> isPalindrome' restChars (restReserved, (nextChar :: firstReserved :: [secondReserved]))
+                // Not the center of a palindrome
+                | _ -> isPalindrome' restChars (nextChar :: reservedCharacterStack, [])
+            // Currently tracking a palindrome
+            | palindromicCenter ->
+                match reservedCharacterStack with
+                // We can continue, because the pattern is still being met. Note popping char from reservedCharStack, and adding to both ends of center.
+                | firstReserved :: restReserved when nextChar = firstReserved -> isPalindrome' restChars (restReserved, nextChar :: (palindromicCenter @ [firstReserved]))
+                | read -> isPalindrome' restChars (nextChar :: palindromicCenter @ read, [])
+
+    isPalindrome' chars ([], [])
+
 let assignArmor3
     n_to_find
     skills

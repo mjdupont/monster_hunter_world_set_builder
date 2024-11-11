@@ -41,10 +41,9 @@ module EquipmentAssignment =
       }
       
 
-  let remainingSkillNeed (equipment: 'equipment list when 'equipment:> IEquipment<'armorset, 'equipmentType, 'skill>) (requestedSkills: ('skill * int) list when Skill<'skill>) =
-      let achievedSkills = equipment |> allProvidedSkills
+  let remainingSkillNeed (requestedSkills: ('skill * int) list when Skill<'skill>) (achievedSkills: ('skill * int) list) =
 
-      let (matchedSkills: (('skill * int) * ('skill * int)) list), _, _ = 
+      let (matchedSkills: (('skill * int) * ('skill * int)) list), _unmatchedRequested, _unmatchedAchieved = 
           List.join (fun (requestedSkill, _) (achievedSkill, _) -> areSameSkill requestedSkill achievedSkill) requestedSkills achievedSkills
       
       [ 
@@ -53,44 +52,82 @@ module EquipmentAssignment =
             if newNeed > 0 then requestedSkill, newNeed
       ]
 
+  let reorganizeKey 
+      (newKey : 'key) 
+      (movedEquipment : 'equipment)
+      (equipmentByKey:('key * 'equipment list) list) 
+      : ('key * 'equipment list) list
+      =
+      let matchingKey, unmatchingKey = equipmentByKey |> List.partition (fun (key, equipment) -> key = newKey)
+      match matchingKey with 
+      | [] -> (equipmentByKey @ [newKey, [movedEquipment]]) 
+      | (matchingKey, matchingEquipment) :: shouldBeEmpty -> ((matchingKey, movedEquipment :: matchingEquipment) :: shouldBeEmpty) @ unmatchingKey
+      |> List.sortBy fst
 
-  let getBestPiece (availableEquipment: Map<string, 'equipment list>) equipType = 
-      Map.tryFind equipType availableEquipment |> Option.bind List.tryHead
+  let rec tryChooseBestFromKey keyGen (equipmentByKey:('a * 'equipment list) list) = 
+      match equipmentByKey with
+      | [] -> None
+      | (key, equipmentList) :: remainingKeys -> 
+          match equipmentList with 
+          | equipment :: restEquipment ->
+              let newKey = equipment |> keyGen
+              if newKey = key then Some (equipment, (key, restEquipment) :: remainingKeys)
+              else 
+                  let newEquipmentByKey = reorganizeKey newKey equipment ((key, restEquipment) :: remainingKeys)
+                  tryChooseBestFromKey keyGen newEquipmentByKey
+          | [] -> tryChooseBestFromKey keyGen remainingKeys
+
+  let keyGenFromRequirements (requestedSkills:('skill * int) list) requestedArmorSkills = 
+      fun (equipment: 'equipment when 'equipment :> IEquipment<'armorset, 'equipmentType, 'skill>) ->
+          let armorSkills = 
+              requestedArmorSkills 
+              |> List.filter (fun ((aSkill:'armorset),count) -> equipment.MaybeSetID = Some aSkill)
+              |> List.length
+          let skillCount = 
+              skillContribution requestedSkills equipment
+          (armorSkills, skillCount)
+          
       
 
-  type SearchState<'decoration, 'equipment, 'equipmentType, 'key> = 
-      {
-          RemainingEquipment: ('equipmentType * ('key * ('equipment list)) list) list
-          ExaminedEquipment: ('equipmentType * ('key * ('equipment list)) list) list
-          SearchPath: 'equipmentType list
-          Decorations: 'decoration list
-      }
+  let organizeEquipment keyGen (equipment: 'equipment list when 'equipment :> IEquipment<'armorset, 'equipmentType, 'skill>) =
+      equipment 
+      |> List.groupBy (fun e -> e.EquipSlot)
+      |> List.map (fun (equipType, equipment) -> (equipType, equipment |> List.groupBy keyGen))
 
-  // let organizeEquipmentSearch 
-  //     (availableEquipment:'equipment list) 
-  //     availableDecorations 
-  //     (keyGen: 'equipment -> 'key)
-  //     requestedSkills 
-  //     requestedSetSkills 
-  //     : SearchState<'decoration, 'equipment, 'equipmentType, 'key> 
-  //     when 'equipment :> IActiveEquipment<'armorset, 'decoration, 'equipmentType, 'skill>
-  //     = 
-  //     let equipmentByType = 
-  //         availableEquipment |> List.groupBy (fun equipment -> equipment.EquipSlot)
-  //     let sortedEquipmentByType = 
-  //         equipmentByType |> List.map (fun (et, equipment) -> et, equipment |> List.groupBy keyGen)
-  //     {
-  //         RemainingEquipment = sortedEquipmentByType
-  //         ExaminedEquipment = []
-  //         SearchPath = []
-  //         Decorations = availableDecorations
-  //     }
+  let chooseNextEquipment 
+      keyGen
+      (orderedEquipment: 'orderedEquipment when 'orderedEquipment :> IOrderedEquipment<'armorset, 'decoration, 'equipment, 'equipmentType, 'key, 'skill>)
+      (equipmentLoadout:'equipmentLoadout :> IEquipmentLoadout<'armorset, 'decoration, 'equipment, 'equipmentType, 'skill>) 
+      =
+          option {
+              let unusedEquipmentSlots = equipmentLoadout.UnfilledEquipmentTypes
+              let! nextBestEquipment, remainingEquipment = orderedEquipment.GetBestEquipment unusedEquipmentSlots
+              return nextBestEquipment, remainingEquipment
+          }
+          
+  let findSet 
+      (requestedSkills: ('skill * int) list)
+      (requestedArmorSkills: ('armorset * int) list)
+      (decorations: 'decoration list)
+      (orderedEquipment: 'orderedEquipment when 'orderedEquipment :> IOrderedEquipment<'armorset, 'decoration, 'equipment, 'equipmentType, 'key, 'skill>)
+      (equipmentLoadout:'equipmentLoadout :> IEquipmentLoadout<'armorset, 'decoration, 'equipment, 'equipmentType, 'skill>) 
+      =
+          option {
+              let achievedSkills = equipmentLoadout.AchievedSkills
+              let remainingSkills = remainingSkillNeed requestedSkills achievedSkills
+              let newKeyGen : ('equipment -> 'key) = keyGenFromRequirements remainingSkills requestedArmorSkills
+              let projectedDistance = distance remainingSkills
+              let projectedReach = bestCaseReach remainingSkills (decorations |> asCounts) (equipmentLoadout.EmptySlots |> asCounts)
+              if projectedReach < projectedDistance 
+              then 
+                  return! None
+              else 
+                  let! nextPiece, remainingEquipment = chooseNextEquipment newKeyGen orderedEquipment equipmentLoadout
+                  let nextLoadout = equipmentLoadout.SetEquipment (Some nextPiece) nextPiece.EquipSlot
+                  return! Some (remainingEquipment, nextLoadout)
+          }
 
 
-  // let rec findEquipmentSet (searchState:SearchState<'equipment, 'equipmentType, 'key>) requestedSkills requestedSetSkills
-  //     match searchState with
-  //     | { SetBonusesAchieved = false } -> 
-  //         let withSetBonuses
 
   /// Splitting this out:
   ///   Take:
